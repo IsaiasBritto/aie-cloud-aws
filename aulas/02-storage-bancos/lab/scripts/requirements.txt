@@ -1,0 +1,10 @@
+# AWS SDK (no CloudShell o boto3 já vem instalado; autentica pela LabRole)
+boto3>=1.34
+
+# Bancos
+psycopg[binary]>=3.2
+pgvector>=0.3
+pymongo>=4.10
+
+# Embeddings locais (MiniLM multilíngue, 384 dimensões) — Lab 3B
+fastembed>=0.4

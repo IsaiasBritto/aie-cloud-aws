@@ -1,0 +1,91 @@
+{
+    "title": "A onda dos peptídeos para beleza: por que pessoas estão injetando 'drogas milagrosas' que não são para consumo humano",
+    "title_detail": {
+        "type": "text/plain",
+        "language": null,
+        "base": "https://podcasts.files.bbci.co.uk/p09qw1cn.rss",
+        "value": "A onda dos peptídeos para beleza: por que pessoas estão injetando 'drogas milagrosas' que não são para consumo humano"
+    },
+    "summary": "<p>Redes sociais estão cheias de anúncios e vídeos de influenciadores aplicando em si mesmo peptídeos vendidos apenas para fins de pesquisa.</p>",
+    "summary_detail": {
+        "type": "text/html",
+        "language": null,
+        "base": "https://podcasts.files.bbci.co.uk/p09qw1cn.rss",
+        "value": "<p>Redes sociais estão cheias de anúncios e vídeos de influenciadores aplicando em si mesmo peptídeos vendidos apenas para fins de pesquisa.</p>"
+    },
+    "subtitle": "Vídeos de influenciadores se injetando peptídeos proliferam nas redes sociais.",
+    "subtitle_detail": {
+        "type": "text/plain",
+        "language": null,
+        "base": "https://podcasts.files.bbci.co.uk/p09qw1cn.rss",
+        "value": "Vídeos de influenciadores se injetando peptídeos proliferam nas redes sociais."
+    },
+    "content": [
+        {
+            "type": "text/html",
+            "language": null,
+            "base": "https://podcasts.files.bbci.co.uk/p09qw1cn.rss",
+            "value": "<p>Redes sociais estão cheias de anúncios e vídeos de influenciadores aplicando em si mesmo peptídeos vendidos apenas para fins de pesquisa.</p>"
+        }
+    ],
+    "published": "Sat, 20 Jun 2026 10:00:00 +0000",
+    "published_parsed": [
+        2026,
+        6,
+        20,
+        10,
+        0,
+        0,
+        5,
+        171,
+        0
+    ],
+    "itunes_duration": "662",
+    "links": [
+        {
+            "length": "5296000",
+            "type": "audio/mpeg",
+            "href": "http://open.live.bbc.co.uk/mediaselector/6/redir/version/2.0/mediaset/audio-nondrm-download-rss-low/proto/http/vpid/p0npgf0l.mp3",
+            "rel": "enclosure"
+        },
+        {
+            "rel": "alternate",
+            "type": "text/html",
+            "href": "http://www.bbc.co.uk/programmes/p0npgghn"
+        }
+    ],
+    "ppg_enclosurelegacy": {
+        "url": "http://open.live.bbc.co.uk/mediaselector/6/redir/version/2.0/mediaset/audio-nondrm-download-rss-low/proto/http/vpid/p0npgf0l.mp3",
+        "length": "5296000",
+        "type": "audio/mpeg"
+    },
+    "ppg_enclosuresecure": {
+        "url": "https://open.live.bbc.co.uk/mediaselector/6/redir/version/2.0/mediaset/audio-nondrm-download-rss-low/proto/https/vpid/p0npgf0l.mp3",
+        "length": "5296000",
+        "type": "audio/mpeg"
+    },
+    "id": "urn:bbc:podcast:p0npgghn",
+    "guidislink": false,
+    "link": "http://www.bbc.co.uk/programmes/p0npgghn",
+    "itunes_explicit": false,
+    "media_content": [
+        {
+            "url": "http://open.live.bbc.co.uk/mediaselector/6/redir/version/2.0/mediaset/audio-nondrm-download-rss-low/proto/http/vpid/p0npgf0l.mp3",
+            "filesize": "5296000",
+            "type": "audio/mpeg",
+            "medium": "audio",
+            "expression": "full",
+            "duration": "662"
+        }
+    ],
+    "authors": [
+        {
+            "name": "BBC Brasil"
+        }
+    ],
+    "author": "BBC Brasil",
+    "author_detail": {
+        "name": "BBC Brasil"
+    },
+    "ppg_canonical": "/programmes/p0npgghn"
+}

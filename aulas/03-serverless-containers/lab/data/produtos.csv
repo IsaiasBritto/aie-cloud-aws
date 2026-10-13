@@ -1,0 +1,21 @@
+id,nome,descricao,categoria,preco,estoque
+1,Cadeira Ergonômica DXRacer,Cadeira de escritório com apoio lombar regulável e encosto de cabeça,moveis,1499.90,15
+2,Notebook Dell Inspiron 15,Notebook 15.6" Intel Core i5 12GB RAM 512GB SSD,eletronicos,4299.00,8
+3,Cafeteira Nespresso Essenza Mini,Cafeteira de cápsulas compacta com aquecimento em 25 segundos,eletrodomesticos,499.00,42
+4,Tênis Nike Air Zoom Pegasus 40,Tênis para corrida com amortecimento Air Zoom,calcados,799.90,25
+5,Smartphone Samsung Galaxy S24,Smartphone 6.2" 128GB Câmera tripla 50MP,eletronicos,3999.00,12
+6,Mesa de Escritório com Regulagem de Altura,Mesa em pé com motor elétrico e tampo 140x70cm,moveis,2899.00,5
+7,Cadeira Gamer Vermelha,Cadeira giratória com encosto reclinável e apoio para braços,moveis,1299.00,20
+8,Fritadeira Air Fryer 4L,Fritadeira sem óleo com timer e controle digital,eletrodomesticos,449.00,30
+9,Liquidificador Oster 1000W,Liquidificador alta potência com copo de vidro 2L,eletrodomesticos,289.00,18
+10,Tênis Adidas Ultraboost 23,Tênis com tecnologia Boost para conforto máximo,calcados,899.90,15
+11,Geladeira Frost Free 400L,Geladeira duplex frost free inverter classe A++,eletrodomesticos,3299.00,7
+12,Headset Gamer HyperX Cloud II,Headset com som surround 7.1 e microfone removível,eletronicos,599.00,40
+13,Mochila para Notebook 15.6,Mochila acolchoada com compartimento para notebook,acessorios,189.90,55
+14,Cadeira Home Office Confortável,Cadeira giratória com rodízios e regulagem de altura,moveis,799.00,10
+15,Smart TV 55 4K,Smart TV LED 55 polegadas 4K UHD com HDR,eletronicos,3499.00,9
+16,Camiseta Polo Masculina,Camiseta polo manga curta 100% algodão,vestuario,89.90,100
+17,Calça Jeans Slim,Calça jeans slim fit elastano para conforto,vestuario,149.90,80
+18,Tênis Casual Branco,Tênis casual unissex de couro sintético,calcados,259.90,60
+19,Cafeteira Italiana 6 Xícaras,Cafeteira italiana em alumínio para fogão,eletrodomesticos,89.90,25
+20,Monitor Ultrawide 29,Monitor ultrawide 29" Full HD 75Hz para produtividade,eletronicos,1499.00,11
