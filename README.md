@@ -4,7 +4,8 @@ Repositório de labs, exercícios e código de infraestrutura da disciplina **Cl
 
 **Professor:** Isaias Britto
 
-**O crédito de elaboração do material é do Prof. Elton Freitas, sendo esta a versão AWS (Learner Lab) do material original — https://github.com/elthonf/aie-cloud/ (Azure). A versão Azure deste professor segue em https://github.com/IsaiasBritto/aie-cloud.**
+**O crédito de elaboração do material é do Prof. Elton Freitas, sendo esta a versão AWS (Learner Lab) do material original — https://github.com/elthonf/aie-cloud/ (Azure). 
+A versão Azure deste professor segue em https://github.com/IsaiasBritto/aie-cloud.**
 ---
 
 ## Sobre a disciplina
