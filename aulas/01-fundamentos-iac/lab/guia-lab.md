@@ -294,7 +294,27 @@ No console:
 
 ### Passo 4 — Demonstração de idempotência
 
-Adicione uma tag no bloco `locals` do `main.tf` (`nano main.tf`):
+Vamos alterar o código e reaplicar, para ver que o Terraform muda **só o necessário**.
+
+**1. Confira que você está no CloudShell, na pasta do Terraform**
+
+O prompt deve ser `[cloudshell-user@ip-... terraform]$`. Se aparecer `ubuntu@ip-...`, você ainda está na VM: digite `exit`.
+
+```bash
+cd ~/aie-cloud/aulas/01-fundamentos-iac/lab/terraform
+```
+
+**2. Abra o arquivo no editor `nano`**
+
+```bash
+nano main.tf
+```
+
+**3. Adicione a nova tag**
+
+- Use as **setas do teclado** (o mouse não funciona no nano) para descer até o bloco `locals`, perto da linha 21
+- Posicione o cursor no **final** da linha `stack        = var.stack_name` e tecle **Enter**
+- Digite a nova linha, mantendo o alinhamento:
 
 ```hcl
 locals {
@@ -308,6 +328,25 @@ locals {
   }
 }
 ```
+
+**4. Salve e saia:** **Ctrl+X** → tecle **Y** (confirma salvar) → **Enter** (mantém o nome `main.tf`)
+
+> ⚠️ **Não use Ctrl+W** (busca do nano): no navegador ele **fecha a aba** do CloudShell.
+> Para colar texto no CloudShell, use **Ctrl+Shift+V** ou clique com o botão direito.
+
+**5. Confira a alteração**
+
+```bash
+grep -n "ambiente" main.tf
+# Esperado: uma única linha, ex.: 28:    ambiente     = "lab"      # NOVA TAG
+```
+
+> **Travou no nano?** Alternativa em uma linha (só adiciona a tag se ela ainda não existir):
+> ```bash
+> grep -q 'ambiente' main.tf || sed -i '/stack        = var.stack_name/a\    ambiente     = "lab"' main.tf
+> ```
+
+**6. Planeje e aplique**
 
 ```bash
 terraform plan
