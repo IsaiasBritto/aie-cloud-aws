@@ -1,6 +1,7 @@
 """
-Aula 2 / Lab 3C (alternativa) — Inserir 30 reviews fictícias da QC no MongoDB (EC2).
+Aula 2 / Lab 3C (demo do professor) — Inserir 30 reviews fictícias da QC no MongoDB (EC2).
 
+Só funciona se o apply criou o MongoDB (TF_VAR_criar_mongo=true).
 Alternativa ao popular_reviews.py (DynamoDB). Mesma estrutura de dados e mesmo
 random seed — facilita comparar os dois bancos NoSQL lado a lado.
 
@@ -12,7 +13,8 @@ Variáveis de ambiente:
                        Se ausente, é derivado do SECRET_ID (troca /postgres por /mongo).
 
 Dependências:
-    pip install --user boto3 pymongo
+    export PYTHONUSERBASE=/tmp/pyuser   # fora do $HOME, que tem só 1 GB
+    pip install --user --no-cache-dir boto3 pymongo
 """
 
 import json
@@ -27,7 +29,9 @@ from pymongo import MongoClient, errors
 
 MONGO_IP = os.environ.get("MONGO_IP")
 if not MONGO_IP:
-    print("Exporte MONGO_IP com o IP da EC2:")
+    print("MONGO_IP vazio. O MongoDB é opcional: o apply só cria a EC2 com")
+    print("  export TF_VAR_criar_mongo=true")
+    print("Se ele já existe, exporte o IP da EC2:")
     print("  export MONGO_IP=$(terraform output -raw mongodb_public_ip)")
     sys.exit(1)
 

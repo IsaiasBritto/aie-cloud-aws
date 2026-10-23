@@ -15,6 +15,12 @@ variable "db_password" {
   }
 }
 
+variable "criar_mongo" {
+  description = "Cria a EC2 com MongoDB + Mongo Express (Lab 3C, demo do professor). Padrão: não cria"
+  type        = bool
+  default     = false
+}
+
 variable "mongo_password" {
   description = "Senha do admin do MongoDB (lab). Fica no Secrets Manager; o Terraform só a injeta na EC2"
   type        = string

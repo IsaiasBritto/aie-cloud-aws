@@ -5,13 +5,13 @@ Provisiona, num único `apply`, a camada de dados da Quantum Commerce na AWS:
 | Arquivo | Recurso |
 |---------|---------|
 | [main.tf](main.tf) | Providers (aws, random, http), sufixo aleatório, `default_tags`, VPC padrão e IP do CloudShell |
-| [variables.tf](variables.tf) | `region`, `db_password` (obrigatória), senhas do MongoDB |
+| [variables.tf](variables.tf) | `region`, `db_password` (obrigatória), `criar_mongo` (padrão `false`) e senhas do MongoDB |
 | [storage.tf](storage.tf) | Bucket S3 privado e criptografado + prefixos `catalogo/`, `imagens/`, `logs/` + lifecycle dos logs |
 | [rds.tf](rds.tf) | RDS PostgreSQL 16 `db.t3.micro` (pgvector disponível) + security group só para o seu IP |
-| [secrets.tf](secrets.tf) | Secrets Manager: connection string do PostgreSQL e credenciais do MongoDB |
+| [secrets.tf](secrets.tf) | Secrets Manager: connection string do PostgreSQL e, com `criar_mongo`, credenciais do MongoDB |
 | [dynamodb.tf](dynamodb.tf) | Tabela on-demand `reviews` (partição `produto_id`, ordenação `review_id`) |
-| [mongo.tf](mongo.tf) + [mongo-user-data.sh.tftpl](mongo-user-data.sh.tftpl) | EC2 Amazon Linux 2023 com Docker: MongoDB 7.0 + Mongo Express 1.0.2 (imagens do ECR Public) |
-| [outputs.tf](outputs.tf) | `bucket_name`, `secret_id`, `mongo_secret_id`, `dynamodb_table`, `db_endpoint`, `mongodb_public_ip`, `mongo_express_url` |
+| [mongo.tf](mongo.tf) + [mongo-user-data.sh.tftpl](mongo-user-data.sh.tftpl) | EC2 Amazon Linux 2023 com Docker: MongoDB 7.0 + Mongo Express 1.0.2 (imagens do ECR Public). **Só com `criar_mongo = true`** |
+| [outputs.tf](outputs.tf) | `bucket_name`, `secret_id`, `dynamodb_table`, `db_endpoint`, `meu_ip`; `mongo_secret_id`, `mongodb_public_ip` e `mongo_express_url` (vazios sem o Mongo) |
 
 ## Como usar (AWS CloudShell, Learner Lab iniciado)
 
@@ -23,12 +23,17 @@ export DB_PASSWORD=$(openssl rand -hex 16)   # RDS não aceita / @ " e espaço
 terraform init
 terraform apply -auto-approve -var="db_password=$DB_PASSWORD"
 
+# Sessão caiu? Recupera outputs, DB_PASSWORD e avisa se o IP mudou:
+source ../exportar-outputs.sh
+
 # ...labs...
 
 terraform destroy -auto-approve -var="db_password=$DB_PASSWORD"
 ```
 
 ## Decisões de projeto
+
+- **MongoDB opcional:** a EC2 do Mongo é demo do professor (gerenciado × autogerenciado). Para criá-la, `export TF_VAR_criar_mongo=true` antes do `apply` — e mantenha a variável exportada, senão um `apply` posterior a remove.
 
 - **Acesso só do seu IP:** `data "http"` descobre o IP de saída do CloudShell e libera só ele no RDS (5432) e no MongoDB (27017). Se abrir um CloudShell novo e o IP mudar, rode `apply` de novo.
 - **Sem segredo no código:** os scripts leem a connection string do Secrets Manager com a credencial da LabRole. `recovery_window_in_days = 0` deixa recriar o mesmo nome logo depois de um destroy.

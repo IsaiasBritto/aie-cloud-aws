@@ -1,10 +1,14 @@
+# Instale fora do $HOME (1 GB no CloudShell):
+#   export PYTHONUSERBASE=/tmp/pyuser
+#   pip install --user --no-cache-dir -r requirements.txt
+
 # AWS SDK (no CloudShell o boto3 já vem instalado; autentica pela LabRole)
 boto3>=1.34
 
 # Bancos
 psycopg[binary]>=3.2
 pgvector>=0.3
-pymongo>=4.10
+pymongo>=4.10   # só para a demo do MongoDB (criar_mongo = true)
 
 # Embeddings locais (MiniLM multilíngue, 384 dimensões) — Lab 3B
 fastembed>=0.4

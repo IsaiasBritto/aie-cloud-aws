@@ -7,14 +7,18 @@ Scripts que populam e exploram as bases provisionadas pelo Terraform da Aula 2. 
 | [popular_produtos.py](popular_produtos.py) | L₂ | Lê a connection string do Secrets Manager e o CSV do S3; cria e popula `t_produtos` no RDS PostgreSQL |
 | [popular_reviews.py](popular_reviews.py) | L₃-A | Insere 30 reviews fictícias no DynamoDB e faz Query na partição `produto_id = 5` |
 | [indexar_produtos.py](indexar_produtos.py) | L₃-B | Gera embeddings (MiniLM, 384 dims) e cria a busca vetorial com pgvector no RDS |
-| [popular_reviews_mongo.py](popular_reviews_mongo.py) | L₃-C | Mesmas 30 reviews no MongoDB da EC2, com a senha lida do Secrets Manager |
+| [popular_reviews_mongo.py](popular_reviews_mongo.py) | L₃-C (demo) | Mesmas 30 reviews no MongoDB da EC2, com a senha lida do Secrets Manager. Só com `TF_VAR_criar_mongo=true` no apply |
 
 ## Dependências
 
 ```bash
-pip install --user -r requirements.txt
+# Fora do $HOME do CloudShell, que tem só 1 GB (o fastembed e o onnxruntime somam centenas de MB)
+export PYTHONUSERBASE=/tmp/pyuser
+pip install --user --no-cache-dir -r requirements.txt
 # ou só o que cada atividade pede (ver guia)
 ```
+
+> `/tmp` é limpo quando a sessão reinicia. Se aparecer `ModuleNotFoundError`, exporte o `PYTHONUSERBASE` e rode o `pip install` de novo.
 
 ## Variáveis de ambiente
 
@@ -25,14 +29,10 @@ pip install --user -r requirements.txt
 | `indexar_produtos.py` | `SECRET_ID` (ou `DB_HOST` + `DB_PASSWORD`), `BUCKET_NAME` |
 | `popular_reviews_mongo.py` | `MONGO_IP`, `MONGO_SECRET_ID` (ou `SECRET_ID`) |
 
+Todas de uma vez, a partir dos outputs do Terraform (inclui `PYTHONUSERBASE` e a `DB_PASSWORD`):
+
 ```bash
-cd ~/aie-cloud/aulas/02-storage-bancos/lab/terraform
-export BUCKET_NAME=$(terraform output -raw bucket_name)
-export SECRET_ID=$(terraform output -raw secret_id)
-export MONGO_SECRET_ID=$(terraform output -raw mongo_secret_id)
-export DYNAMO_TABLE=$(terraform output -raw dynamodb_table)
-export DB_HOST=$(terraform output -raw db_endpoint)
-export MONGO_IP=$(terraform output -raw mongodb_public_ip)
+source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh
 ```
 
 ## Como executar

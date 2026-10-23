@@ -13,17 +13,19 @@ resource "aws_secretsmanager_secret_version" "postgres" {
 }
 
 resource "aws_secretsmanager_secret" "mongo" {
+  count                   = var.criar_mongo ? 1 : 0
   name                    = "${local.nome}/mongo"
   description             = "Credenciais do MongoDB na EC2 (Lab 3C)"
   recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "mongo" {
-  secret_id = aws_secretsmanager_secret.mongo.id
+  count     = var.criar_mongo ? 1 : 0
+  secret_id = aws_secretsmanager_secret.mongo[0].id
   secret_string = jsonencode({
     username = "admin"
     password = var.mongo_password
-    host     = aws_instance.mongo.public_ip
+    host     = aws_instance.mongo[0].public_ip
     port     = 27017
   })
 }

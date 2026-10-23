@@ -13,7 +13,7 @@
 | Cabeçalho do grupo + distribuição do trabalho | ✅ Sim | 1 pt (Critério 4) |
 | 🟢 N1 — Exercícios 1.1, 1.2, 1.3, 1.4 (storage, tiers, relacional vs NoSQL, Secrets Manager e IAM) | ✅ Sim | 3 pts (Critério 1) |
 | 🟡 N2 — Exercícios 2.1 (matriz de dados QC + diagrama), 2.2 (plano de migração), 2.3 (particionamento no DynamoDB ou no MongoDB) | ✅ Sim | 3 pts (Critério 2) + 2 pts qualidade técnica (Critério 3) |
-| 🔴 N3 — Exercícios 3.1 (vector search verdadeira) |
+| 🔴 N3 — Exercícios 3.1 (busca híbrida: vetor + full-text), 3.2 (OLAP: proposta com Athena), 3.3 (benchmark) | 🎁 Bônus | até +2 pts extras |
 | Reflexão coletiva ao final | ✅ Sim | 1 pt (Critério 5) |
 | **Total** | | **10 pts** |
 
@@ -60,7 +60,7 @@ Upload no Portal FIAP, tarefa "Entrega Aula 2".
 
 - **N1:** justificar a escolha entre Object/File/Block e entre relacional/NoSQL/vector com base no caso de uso. Política IAM do Secrets Manager no nível de menor privilégio.
 - **N2:** a **matriz de decisão de dados** da QC (9 domínios) com serviço + SKU + justificativa, e o **diagrama atualizado** incluindo a camada de dados. Esta é a peça central do projeto integrado nesta aula.
-- **N3 (bônus):** o exercício de **vector search verdadeira** (com embeddings) é o mais valorizado — é base do RAG dos agentes.
+- **N3 (bônus):** a **busca híbrida** (3.1, vetor + full-text no mesmo PostgreSQL) é a mais valorizada — é a base do RAG dos agentes.
 - **Reflexão:** discutir por que segregar segredos no Secrets Manager muda o modelo de segurança em uma plataforma agentic.
 
 ---
