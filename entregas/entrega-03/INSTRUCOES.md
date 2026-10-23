@@ -58,7 +58,7 @@ Upload no Portal FIAP, tarefa "Entrega Aula 3".
 
 [Rubrica única](../rubrica.md). **Foco específico desta entrega:**
 
-- **N1:** dominar a decisão **Lambda / ECS Fargate / App Runner / EKS** por caso de uso e o conceito de **IAM Role** (execution role, task role) como substituto a credenciais.
+- **N1:** dominar a decisão **Lambda / ECS Fargate / ECS Express Mode / EKS** por caso de uso e o conceito de **IAM Role** (execution role, task role) como substituto a credenciais.
 - **N2:** a tool de **cálculo de frete** entra como segunda tool consumida pelos agentes na próxima aula. **CloudWatch** (logs, métricas, alarmes) + o endurecimento do **Fargate** (restart, right-sizing/custo, segredos via Secrets Manager, uma tarefa) mostram domínio operacional.
 - **N3 (bônus):** o exercício **3.1 (spec de tool)** é o mais valorizado — é o contrato entre o agente e a API que vocês construíram. Bem feito, é peça do projeto integrado final.
 - **Reflexão:** discutir como a escolha "Lambda vs Container" muda a forma como o agente consome a tool (cold start, latência, falhas) e o que isso implica para a UX da QC.

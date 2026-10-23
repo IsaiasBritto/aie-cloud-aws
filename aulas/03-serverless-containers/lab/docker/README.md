@@ -41,14 +41,14 @@ curl "http://$TASK_IP:8080/health"
 curl "http://$TASK_IP:8080/produtos?categoria=moveis"
 ```
 
-> Sem load balancer, a tarefa ganha um IP público próprio, que muda a cada reinício. Em produção: **Application Load Balancer** na frente do serviço — ou **App Runner**, que entrega URL HTTPS e auto-scale a partir da mesma imagem do ECR.
+> Sem load balancer, a tarefa ganha um IP público próprio, que muda a cada reinício. Em produção: **Application Load Balancer** na frente do serviço — ou **ECS Express Mode**, que cria serviço, ALB com HTTPS e auto-scale a partir da mesma imagem do ECR (o App Runner fechou para novos clientes).
 
 ## Comparação com a Lambda (mesma lógica, runtime diferente)
 
 | Aspecto | Lambda v2-s3 | ECS Fargate (este container) |
 |---------|--------------|------------------------------|
 | URL | `https://<id>.lambda-url.us-east-1.on.aws/produtos` | `http://<ip-da-tarefa>:8080/produtos` |
-| TLS | ✅ Embutido | ❌ Precisa de ALB ou App Runner |
+| TLS | ✅ Embutido | ❌ Precisa de ALB (ou ECS Express Mode) |
 | Cold start | ~1 s | Não há (sempre ligada) |
 | Custo parado | US$ 0 | Paga por segundo enquanto a tarefa existir |
 | Auto-scale | ✅ Automático | Configurável (Service Auto Scaling) |

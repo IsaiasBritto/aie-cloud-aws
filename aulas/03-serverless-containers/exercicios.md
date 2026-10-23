@@ -38,7 +38,7 @@ Use o [template em `entregas/template-entrega-grupo.md`](../../entregas/template
 
 ### Exercício 1.1 — Quando usar serverless?
 
-Para cada cenário da Quantum Commerce, marque **Lambda**, **ECS Fargate**, **App Runner** ou **EKS** e justifique em uma frase:
+Para cada cenário da Quantum Commerce, marque **Lambda**, **ECS Fargate**, **ECS Express Mode** ou **EKS** e justifique em uma frase:
 
 | Cenário | Escolha | Justificativa |
 |---------|---------|---------------|
@@ -55,7 +55,7 @@ Para cada cenário da Quantum Commerce, marque **Lambda**, **ECS Fargate**, **Ap
 
 - API de busca (1M/mês, picos): **Lambda** — paga por chamada, escala sozinha, o free tier cobre boa parte
 - Worker de fila: **Lambda com gatilho SQS** — orientado a evento, escala a zero
-- Java Spring Boot legado: **App Runner** (URL HTTPS + auto-scale com pouca operação) ou **ECS Fargate**
+- Java Spring Boot legado: **ECS Express Mode** (ALB com HTTPS + auto-scale numa chamada, pouca operação) ou **ECS Fargate**
 - Pipeline batch de 1h/noite: **ECS Fargate (tarefa agendada pelo EventBridge Scheduler)** — paga por segundo, sem limite de 15 min
 - Pagamentos com tráfego constante e regulado: **ECS Fargate** ou **EKS** — controle fino, sem cold start
 - 25 microserviços + service mesh: **EKS** — o ecossistema de mesh mais maduro

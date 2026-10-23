@@ -11,7 +11,7 @@ Termos que aparecem nas aulas, com a tradução prática e o equivalente nas tr�
 | Managed SQL Database | Banco relacional gerenciado | RDS (PostgreSQL + pgvector) | Azure SQL | Cloud SQL |
 | NoSQL | Banco NoSQL | DynamoDB | Cosmos DB | Firestore |
 | Function / FaaS | Função serverless | Lambda (+ Function URL) | Azure Functions | Cloud Functions |
-| Containers sem servidor | Containers gerenciados | ECS Fargate · App Runner | Container Apps · ACI | Cloud Run |
+| Containers sem servidor | Containers gerenciados | ECS Fargate · ECS Express Mode | Container Apps · ACI | Cloud Run |
 | Container Registry | Registro de imagens | ECR | ACR | Artifact Registry |
 | Managed Kubernetes | Kubernetes gerenciado | EKS | AKS | GKE |
 | Identity / IAM | Identidade e acesso | IAM (roles; no Learner Lab, `LabRole`) | Entra ID + RBAC | IAM |

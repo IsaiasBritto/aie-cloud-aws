@@ -8,7 +8,7 @@ Ao final desta aula, você será capaz de:
 - Provisionar uma **AWS Lambda** com **Function URL** via Terraform e publicar código com a AWS CLI.
 - Ler dados do **S3** a partir da Lambda **sem credenciais no código** (execution role).
 - Empacotar o mesmo código num **container Docker**, publicar no **Amazon ECR** e rodar no **Amazon ECS (Fargate)**.
-- Comparar Lambda × Fargate × App Runner em custo parado, cold start, escala e operação.
+- Comparar Lambda × ECS Fargate × ECS Express Mode × EKS em custo parado, cold start, escala e operação.
 - Descrever a API como **tool** consumível por um agente de IA.
 
 ---

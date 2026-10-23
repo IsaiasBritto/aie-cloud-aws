@@ -231,7 +231,7 @@ aws ecs update-service --cluster <ecs_cluster_name> --service eva --desired-coun
 ```
 
 - **Agendar** o desligamento (EventBridge Scheduler chamando `UpdateService`).
-- **Trocar de serviço**: Lambda ou App Runner escalam a zero — com cold start
+- **Trocar de serviço**: Lambda escala a zero — com cold start (o ECS Express Mode, sucessor do App Runner, não escala)
   e outras restrições (o Streamlit precisa de WebSocket).
 - **Fargate Spot**: até ~70% mais barato, interrompível. Serve para lab.
 
