@@ -1,0 +1,21 @@
+---
+title: Lab2 — memória revisável · o agente propõe, só um humano assina
+---
+sequenceDiagram
+    autonumber
+    participant Deva as Deva (agente)
+    participant API as API
+    participant Pend as memoria-pendente.md
+    participant Aud as Auditor humano
+    participant Mem as MEMORY.md
+
+    Deva->>API: POST /memoria/propostas "estacionamento em aeroporto -> viagem_aerea"
+    API->>API: filtros: injeção? (422) · mexe na alçada? (422 → controladoria) · teto 50? (429)
+    API->>Pend: grava p-0001 (proposto por: deva)
+    Note over Pend,Mem: nada em pendente influencia decisão
+    Deva-->>API: POST .../p-0001/aprovar (sem X-Auditor)
+    API-->>Deva: 403 sem_auditor
+    Aud->>API: POST .../p-0001/aprovar · X-Auditor: Ana Souza
+    API->>Mem: "- [data] estacionamento em aeroporto -> viagem_aerea (definido por: Ana Souza)"
+    Deva->>API: próxima volta: GET /memoria
+    API-->>Deva: a regra assinada vence a palavra-chave

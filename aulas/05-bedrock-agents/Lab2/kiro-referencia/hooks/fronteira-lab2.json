@@ -1,0 +1,20 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Testes depois de editar a API",
+      "trigger": "PostFileSave",
+      "matcher": "^api/.*\\.py$",
+      "action": { "type": "command", "command": "python -m pytest -q api/testes" }
+    },
+    {
+      "name": "MEMORY.md só muda por auditor",
+      "trigger": "PreToolUse",
+      "matcher": "write",
+      "action": {
+        "type": "command",
+        "command": "! grep -q MEMORY.md || { echo 'proibido: MEMORY.md só muda pela API, com X-Auditor' >&2; exit 1; }"
+      }
+    }
+  ]
+}

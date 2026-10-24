@@ -1,0 +1,23 @@
+---
+title: Lab2 — a árvore de decisão de uma volta (nesta ordem)
+---
+flowchart TB
+    inicio(["GET /memoria · GET /fila/proximo"]) --> vazio{"204?"}
+    vazio -->|sim| fim(["nada a fazer"])
+    vazio -->|não| dup{"mesmo hash de<br/>item já processado?"}
+    dup -->|sim| D["<b>duplicado</b>"]
+    dup -->|não| inj{"texto tenta dar<br/>instrução ao agente?"}
+    inj -->|sim| S["<b>exceção · seguranca</b><br/><span style='font-size:13px'>vira incidente</span>"]
+    inj -->|não| val{"valor legível?"}
+    val -->|não| L["<b>exceção · leitura</b>"]
+    val -->|sim| cat{"categoria?<br/><span style='font-size:13px'>1º regra assinada no MEMORY.md<br/>2º palavra-chave</span>"}
+    cat -->|nenhuma| C["<b>exceção · categoria</b>"]
+    cat -->|achou| alc{"valor > alçada<br/>do MEMORY.md?"}
+    alc -->|sim| A["<b>exceção · alcada</b>"]
+    alc -->|não| E["<b>extraido</b>"]
+    E -.->|"teve dúvida?"| P["POST /memoria/propostas<br/><span style='font-size:13px'>propõe — não decide</span>"]
+
+    classDef ok fill:#12222A,stroke:#03E3FD,stroke-width:2px,color:#F4F3EF
+    classDef exc fill:#22161B,stroke:#EB0B4F,stroke-width:2px,color:#F4F3EF
+    class D,E,P ok
+    class S,L,C,A exc

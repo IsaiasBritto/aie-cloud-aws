@@ -223,8 +223,19 @@ def responder(
 
         for chamada in recado.tool_calls:
             # A API também pode retornar chamadas do tipo "custom", que não
-            # possuem o atributo `function`.
+            # possuem o atributo `function`. NÃO dá para só pular: todo
+            # tool_call_id precisa de uma resposta "tool", senão a próxima
+            # chamada falha com 400. Responda com um erro que o modelo lê.
             if chamada.type != "function":
+                mensagens.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": chamada.id,
+                        "content": json.dumps(
+                            {"erro": f"tipo de chamada '{chamada.type}' não suportado; use uma das funções"}
+                        ),
+                    }
+                )
                 continue
             nome = chamada.function.name
             try:

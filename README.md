@@ -19,7 +19,7 @@ A disciplina forma a base de infraestrutura cloud sobre a qual o restante do MBA
 | 2 | [Storage & Bancos](aulas/02-storage-bancos/) |
 | 3 | [Serverless & Containers](aulas/03-serverless-containers/) |
 | 4 | [Serviços Cognitivos](aulas/04-servicos-cognitivos/) |
-| 5 | [Agentes com Amazon Bedrock](aulas/05-bedrock-agents/) · [MLOps com SageMaker AI](aulas/05-mlops/) |
+| 5 | [Agentes com Amazon Bedrock](aulas/05-bedrock-agents/) · *complementar:* [MLOps com SageMaker AI](aulas/05-mlops/) |
 | 6 | [FinOps & Projeto Final](aulas/06-finops-projeto-final/) |
 
 ---

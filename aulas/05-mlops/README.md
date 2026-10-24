@@ -1,4 +1,8 @@
-# Aula 5 — MLOps na Nuvem
+# Aula 5 (complementar) — MLOps na Nuvem
+
+> **Material complementar.** A Aula 5 em sala é [Agentes com Amazon Bedrock](../05-bedrock-agents/), e a
+> [Entrega 05](../../entregas/entrega-05/INSTRUCOES.md) cobra agentes. Este conteúdo continua aqui para estudo
+> e para o grupo que quiser implementar o `/recomendar` do projeto final com o SageMaker.
 
 ## Objetivos de aprendizagem
 

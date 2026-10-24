@@ -127,7 +127,7 @@ O projeto integrado final consolida tudo o que foi construído ao longo das 6 au
 - `README.md` — visão geral da arquitetura QC, decisões-chave, instruções de execução
 - `arquitetura/diagrama-final.png` — diagrama da arquitetura QC com todas as camadas (Aulas 1-5)
 - `arquitetura/decisoes-tecnicas.md` — ADRs (mínimo 5 decisões)
-- `terraform/` — IaC consolidado que provisiona toda a infra (S3 + RDS/pgvector + DynamoDB + Secrets Manager + Lambda + ECR/ECS + bucket e Registry do SageMaker)
+- `terraform/` — IaC consolidado que provisiona toda a infra (S3 + RDS/pgvector + DynamoDB + Secrets Manager + Lambda + ECR/ECS; bucket e Registry do SageMaker só se o grupo seguiu o trilho de MLOps)
 - `function/` — Lambda da QC com as 5 tools (`/produtos`, `/transcrever`, `/analisar-reviews`, `/analisar-imagem`, `/recomendar`)
 - `tools-spec.md` — spec das 5 tools em JSON Schema para consumo por agentes
 - `finops/` — estimativa de custo mensal + propostas de otimização (export do Pricing Calculator + análise)

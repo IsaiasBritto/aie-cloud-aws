@@ -129,7 +129,8 @@ Diagrama da arquitetura completa, com todas as camadas:
 - **API / Lambda** (5 tools, Function URL)
 - **Dados:** S3, RDS PostgreSQL + pgvector, DynamoDB (e/ou MongoDB)
 - **Cognitivos:** Transcribe, Polly, Comprehend, Rekognition
-- **ML:** SageMaker AI (Training Job + Model Registry + endpoint)
+- **Agente:** especificação do agente (subconjunto das tools) e a fronteira em código — o que só um humano aprova (Aula 5, Lab2)
+- **ML (opcional):** SageMaker AI (Training Job + Model Registry + endpoint) — trilho complementar de MLOps
 - **Identidade & Segredos:** IAM roles + Secrets Manager (transversal)
 - **Observabilidade:** CloudWatch Logs / Metrics / Logs Insights (transversal)
 - **Setas** mostrando fluxos de dados e chamadas de tools
@@ -169,7 +170,7 @@ Lambda consolidada com as rotas:
 | `/transcrever` | 4 | Transcribe: fala → texto de áudio do S3 |
 | `/analisar-reviews` | 4 | Comprehend: sentimento + entidades sobre reviews do MongoDB/DynamoDB |
 | `/analisar-imagem` | 4 | Rekognition: rótulos + texto (OCR) |
-| `/recomendar` | 5 | Chama o endpoint do SageMaker — top 5 produtos similares |
+| `/recomendar` | 4/5 | Top 5 produtos similares: por **similaridade de embeddings no pgvector** (Aula 4) ou pelo **endpoint do SageMaker** (trilho complementar de MLOps) |
 
 Todas as rotas devem usar a **role da Lambda** (sem chave de acesso no código); segredo de banco só via **Secrets Manager**. Documentação inline em cada rota (docstring).
 
@@ -288,8 +289,8 @@ Tabela mostrando quem fez o quê em cada aula e no projeto final:
 **Q: O Terraform precisa rodar sem erro?**
 A: `terraform plan` precisa rodar sem erro. `terraform apply` não é exigido na correção, mas se rodar, é um plus.
 
-**Q: Se eu não fiz o Online Endpoint da Aula 5 (custou), posso entregar sem?**
-A: Sim. Documente no README a decisão de não manter o endpoint custosamente. O Terraform pode ter o recurso comentado ou em variável `enable_endpoint = false`.
+**Q: Se eu não fiz o Online Endpoint do SageMaker (custou), posso entregar sem?**
+A: Sim — o MLOps é trilho complementar; o `/recomendar` pode usar o pgvector. Documente no README a decisão de não manter o endpoint custosamente. O Terraform pode ter o recurso comentado ou em variável `enable_endpoint = false`.
 
 **Q: Posso usar repositório público para entregar?**
 A: NÃO. A entrega é via ZIP no Portal FIAP. Repos públicos foram desencorajados desde a Aula 1 para evitar cópia entre grupos.

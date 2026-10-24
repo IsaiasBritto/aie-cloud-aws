@@ -1,0 +1,30 @@
+---
+title: Lab2 — Deva contínuo · o gatilho e a fronteira
+---
+flowchart LR
+    s3["<b>S3</b> · entrada/<br/><span style='font-size:13px'>nota nova chega</span>"]
+    eb["<b>EventBridge</b><br/><span style='font-size:13px'>regra: prefixo entrada/<br/>MEMORY.md não dispara</span>"]
+    lb["<b>Lambda</b> deva-gatilho<br/><span style='font-size:13px'>2ª linha do filtro</span>"]
+    sqs["<b>SQS</b><br/><span style='font-size:13px'>desacopla e segura picos</span>"]
+    disp["<b>disparador.py</b><br/><span style='font-size:13px'>--sqs</span>"]
+
+    subgraph api["API do Deva · 14 operações"]
+        direction TB
+        fila["fila<br/><span style='font-size:13px'>máquina de estados</span>"]
+        mem["memória<br/><span style='font-size:13px'>MEMORY.md + pendente</span>"]
+    end
+
+    agente["<b>Deva</b> (agente)<br/><span style='font-size:13px'>só 5 operações<br/>freios: 8 voltas · 20 mil tokens · 60 s</span>"]
+    auditor["<b>Auditor humano</b><br/><span style='font-size:13px'>X-Auditor: nome</span>"]
+
+    s3 --> eb --> lb --> sqs --> disp -->|"POST /fila"| fila
+    agente -->|"ler · próximo · registrar · propor"| api
+    auditor -->|"aprovar · recusar · resolver exceção"| api
+    agente -.->|"aprovar? 403 · liberar exceção? 409"| api
+
+    classDef pessoa fill:#22161B,stroke:#EB0B4F,stroke-width:2px,color:#F4F3EF
+    classDef sistema fill:#12222A,stroke:#03E3FD,stroke-width:2.5px,color:#F4F3EF
+    classDef externo fill:#1C1C22,stroke:#7A7872,stroke-width:1.5px,color:#C3C1BA
+    class auditor pessoa
+    class agente,fila,mem sistema
+    class s3,eb,lb,sqs,disp externo

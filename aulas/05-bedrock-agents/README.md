@@ -14,6 +14,7 @@ observado e custeado na AWS — e um laboratório de serviço cognitivo com LGPD
 | [02-agente-Eva-local-to-bedrock/](02-agente-Eva-local-to-bedrock/) | A mesma Eva falando com a API **Converse** | sua máquina | **sim** — demo do professor |
 | [03-agente-Eva-aws/](03-agente-Eva-aws/) | A Eva no **ECS Fargate**, com telemetria e FinOps no CloudWatch | AWS | opcional (`provedor = openai` no Learner Lab) |
 | [Lab/](Lab/) | **Deva3** — validação biométrica básica com **Rekognition**, S3 e ECS | Learner Lab | não |
+| [Lab2/](Lab2/) | **Deva contínuo** — gatilho S3 → EventBridge → Lambda → SQS, fila com máquina de estados e **memória revisável** (o agente propõe, o auditor assina). Inclui o hands-on do **Kiro** | sua máquina · CloudShell · Learner Lab | opcional (`--bedrock`, demo do professor) |
 
 ## Ordem sugerida
 
@@ -23,6 +24,13 @@ observado e custeado na AWS — e um laboratório de serviço cognitivo com LGPD
 3. `Lab/` (turma): serviço cognitivo, confiança × limiar, consentimento e retenção.
 4. `03-agente-Eva-aws` (turma, com `provedor = openai`): container, ECR, ECS, segredo no
    Secrets Manager e o custo por turno no CloudWatch — que é a ponte para a Aula 6.
+5. `Lab2/` (turma, 45 min): o agente trabalha sozinho e a **fronteira em código** segura o que o
+   prompt não segura — 403, 409 e 422 ao vivo. Guia: [Lab2/guia-lab.md](Lab2/guia-lab.md).
+6. Kiro (turma, 40 min, **instalação na pré-aula**): spec, steering e hook sobre o próprio Lab2.
+   Guia: [Lab2/docs/kiro.md](Lab2/docs/kiro.md).
+
+Exercícios: [exercicios.md](exercicios.md) · Entrega: [entrega-05](../../entregas/entrega-05/INSTRUCOES.md).
+O conteúdo de MLOps com SageMaker AI virou [material complementar](../05-mlops/).
 
 ## Custos e limpeza
 
@@ -30,5 +38,6 @@ Tudo que roda no ECS cobra **enquanto está ligado**. Ao fim da aula:
 
 ```bash
 bash Lab/infra/99-remover-tudo.sh
+bash Lab2/infra/99-remover-tudo.sh
 terraform -chdir=03-agente-Eva-aws/infra/terraform destroy -auto-approve
 ```
