@@ -107,15 +107,15 @@ Marque a estratégia recomendada para produção e justifique:
 **Perguntas extras:**
 
 1. Por que, na AWS, **não existe** "chave do serviço de IA" como em outras nuvens? Onde fica, então, o controle de acesso?
-2. O lab deixa a porta 27017 do MongoDB aberta para a internet porque a Lambda está fora da VPC. Como seria em produção? (Lambda numa subnet privada da VPC, Mongo em subnet privada, regra de entrada referenciando o **security group da Lambda**, e VPC endpoints para S3/Secrets Manager)
-3. O `semear_reviews.py` tem a senha do Mongo no código. Reescreva-o lendo o segredo `$MONGO_SECRET_ID`.
+2. Uma versão anterior deste lab guardava as reviews num MongoDB numa EC2: senha no script, segredo no Secrets Manager para a Lambda e porta 27017 aberta para a internet (a Lambda roda fora da VPC). Liste os riscos e explique por que o DynamoDB os elimina. Se a QC **precisasse** de MongoDB, como seria em produção? (Amazon DocumentDB ou Mongo em subnet privada, Lambda na VPC, regra de entrada referenciando o **security group da Lambda**, VPC endpoints para S3/Secrets Manager)
+3. O `semear_reviews.py` não tem credencial nenhuma. De onde vem a autorização para gravar na tabela? Escreva a policy IAM mínima (ação e ARN) para esse script.
 
 <details>
 <summary>Sugestão</summary>
 
 - Hardcoded → **NÃO** (vaza no repositório)
 - Variável de ambiente → **não ideal** (quem lê a configuração da função vê)
-- Secrets Manager → **ok para segredos de terceiros** (como a senha do Mongo), mas desnecessário para serviços AWS
+- Secrets Manager → **ok para segredos de terceiros** (senha de um banco autogerenciado, chave de API externa), mas desnecessário para serviços AWS
 - **Execution role** → ✅ **padrão de produção**: credencial temporária, rotacionada pela própria Lambda, auditada no CloudTrail
 
 </details>
@@ -151,7 +151,7 @@ b) **Sentimento por aspecto:** use `comprehend.detect_targeted_sentiment` para i
 
 c) **Resumo:** para reviews com mais de 300 caracteres, um resumo de 1 frase — com quê? (Comprehend não resume: compare `DetectKeyPhrases` com um LLM no Bedrock)
 
-d) **Persistência estruturada** no MongoDB:
+d) **Persistência estruturada** no DynamoDB (lembre: números decimais vão como `Decimal`):
 
 ```json
 {
@@ -211,7 +211,7 @@ d) **Recomende** — e, se fizer sentido, proponha um híbrido (Custom Labels no
 
 A Aula 2 gerou embeddings com MiniLM no CloudShell. Agora, use os **resultados de IA desta aula** para enriquecer a busca:
 
-a) Para cada review analisada no MongoDB, gere um embedding do texto (mesmo modelo da Aula 2, com `fastembed`) e grave numa tabela `reviews_vetor` no RDS da Aula 2 (ou num RDS novo) com o sentimento do Comprehend como coluna.
+a) Para cada review analisada no DynamoDB, gere um embedding do texto (mesmo modelo da Aula 2, com `fastembed`) e grave numa tabela `reviews_vetor` no RDS da Aula 2 (ou num RDS novo) com o sentimento do Comprehend como coluna.
 b) Implemente a consulta: "reviews **negativas** que falam de **entrega atrasada**" = filtro `sentimento = 'NEGATIVE'` + `ORDER BY embedding <=> :consulta`.
 c) Compare com a mesma busca só por palavra (`ILIKE '%entrega%'`).
 d) **Produção:** troque o MiniLM pelo **Amazon Titan Text Embeddings V2** (1024 dimensões) no Bedrock. Estime o custo de vetorizar 30M de reviews (~80 tokens cada) a ~US$ 0,02 por 1M tokens.
@@ -235,7 +235,7 @@ e) Documente: prints das métricas, o ARN do modelo e o custo estimado de 50 mil
 Desenhe (e, se tiver conta própria, implemente) a rota `/sumarizar-reviews-produto`:
 
 a) Recebe `produto` como query param
-b) Lê **todas as reviews** desse produto no MongoDB (já com sentimento)
+b) Lê **todas as reviews** desse produto com uma **Query** na partição `produto` do DynamoDB (já com sentimento) — é por isso que a partition key é o produto
 c) Chama um modelo do Bedrock (ex.: Claude Haiku 5.5 via `bedrock-runtime` `converse`) com prompt estruturado:
 
 ```

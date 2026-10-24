@@ -29,7 +29,7 @@ Nome: `entrega-grupo-NN-aula04.zip`.
 qc-grupo-NN-aula04/
 ├── entrega-grupo-aula04.md       # ⭐ documento principal (template em ../template-entrega-grupo.md)
 ├── README.md                     # Como rodar o pipeline (deploy + curl de cada rota)
-├── terraform/                    # main.tf evoluído (Lambda + S3 + Secrets Manager + Mongo, e o que o N3 exigir)
+├── terraform/                    # main.tf evoluído (Lambda + S3 + DynamoDB, e o que o N3 exigir)
 ├── function/                     # function_app.py (Lambda + Powertools) com rotas adicionais (sumarização se N2.1/N3.3)
 ├── scripts/                      # Python: re-indexação com embeddings (se N3.1)
 └── diagramas/

@@ -11,48 +11,68 @@
 ## Visão geral do lab
 
 ```
-Atividade 1  — terraform apply + semear reviews no MongoDB                       ~25 min  (L₁)
+Abertura     — limpeza da Aula 3 + pré-voo dos serviços + terraform apply        ~10 min
+Atividade 1  — semear reviews no DynamoDB                                         ~20 min  (L₁)
 Atividade 2  — Polly (texto → fala) e Transcribe (fala → texto) via Lambda       ~30 min  (L₂)
-Atividade 3  — Comprehend: pipeline de reviews (sentimento + entidades)          ~30 min  (L₃)
-Atividade 4  — Rekognition: rótulos, objetos e texto de imagem de produto        ~20 min  (L₄)
-Atividade 5  — Front-end Streamlit: os serviços + comparação de arquitetura      ~30 min  (L₅)
-Wrap-up      — terraform destroy + verificação de custo                          ~5 min
+Atividade 3  — Comprehend: pipeline de reviews (sentimento + entidades)          ~20 min  (L₃)
+Atividade 4  — Rekognition: rótulos, objetos e texto de imagem de produto        ~15 min  (L₄)
+Demo         — QC Cognitive Studio (Streamlit): duas arquiteturas, professor      ~10 min
+Wrap-up      — terraform destroy + verificação de custo                           ~5 min
 ```
 
-> **Na AWS os serviços de IA não precisam de recurso provisionado:** Transcribe, Polly, Comprehend e Rekognition são APIs da conta, liberadas por IAM. O Terraform sobe só o que é seu: bucket, Lambda, MongoDB e o segredo.
+Os tempos casam com o roteiro do deck (slide 2). Os blocos de teoria acontecem entre as atividades.
 
-> **Regra de ouro:** `terraform destroy` ao final. Os serviços de IA cobram por chamada — sem chamadas, sem custo; a EC2 do Mongo cobra por hora.
+> **Na AWS os serviços de IA não precisam de recurso provisionado:** Transcribe, Polly, Comprehend e Rekognition são APIs da conta, liberadas por IAM. O Terraform sobe só o que é seu: bucket, Lambda e a tabela DynamoDB das reviews.
+
+> **Nenhuma credencial no lab inteiro:** a Lambda e o CloudShell falam com S3, DynamoDB e os serviços de IA pela LabRole. Não existe senha de banco, porta aberta nem chave de API — é a vacina da Aula 3 levada até o fim.
+
+> **Regra de ouro:** `terraform destroy` ao final. Os serviços de IA e o DynamoDB on-demand cobram por chamada — sem chamadas, sem custo.
 
 ---
 
-## Atividade 1 — Provisionar e semear (L₁)
+## Abertura — limpeza da Aula 3, pré-voo e apply (10 min)
 
-### Passo 1 — Repositório e Terraform
+**A Aula 3 foi destruída?** Tag Editor (região `us-east-1`, *All supported resource types*, tag `aula = 3`) deve voltar **vazio**. Se sobrou algo: `cd ~/aie-cloud/aulas/03-serverless-containers/lab/terraform && terraform destroy -auto-approve`.
 
 ```bash
-cd ~ && rm -rf aie-cloud
-git clone https://github.com/IsaiasBritto/aie-cloud-aws.git aie-cloud
-cd aie-cloud/aulas/04-servicos-cognitivos/lab/terraform
+# Ainda não clonou? Clone:
+cd ~ && git clone https://github.com/IsaiasBritto/aie-cloud-aws.git aie-cloud
 
+# Já clonou? Atualize SEM apagar a pasta (apagar leva junto o terraform.tfstate das aulas anteriores):
+git -C ~/aie-cloud stash && git -C ~/aie-cloud pull
+
+cd ~/aie-cloud/aulas/04-servicos-cognitivos/lab
+
+# Pré-voo: a sessão chega a S3, Lambda, DynamoDB, Polly, Transcribe, Comprehend e Rekognition?
+bash check_servicos.sh
+
+# Terraform no $HOME (se não instalou) e o apply
 bash ~/aie-cloud/aulas/01-fundamentos-iac/lab/install_terraform.sh
-export PATH="$HOME/bin:$PATH" TF_PLUGIN_CACHE_DIR="$HOME/.terraform.d/plugin-cache"
+export PATH="$HOME/bin:$PATH"
+export TF_PLUGIN_CACHE_DIR="$HOME/.terraform.d/plugin-cache"
 
+cd terraform
 terraform init
 terraform apply -auto-approve
 ```
 
-Enquanto o Terraform trabalha (~3 min), leia os arquivos:
+---
+
+## Atividade 1 — Semear as reviews (L₁)
+
+### Passo 1 — O que o Terraform criou
+
+Enquanto o Terraform trabalha (~1 a 2 min), leia os arquivos:
 
 | Arquivo | O que define |
 |---------|--------------|
-| [main.tf](terraform/main.tf) | Providers, tags, locals (credenciais Mongo), data source da LabRole |
+| [main.tf](terraform/main.tf) | Providers, tags, locals, data source da LabRole |
 | [variables.tf](terraform/variables.tf) | `region` (padrão `us-east-1`) |
 | [outputs.tf](terraform/outputs.tf) | Todos os outputs consumidos pelo guia e pelos scripts |
 | [storage.tf](terraform/storage.tf) | Bucket de dados + prefixos `audios/` e `imagens/` |
 | [lambda.tf](terraform/lambda.tf) | Lambda Python 3.12 + Function URL + LabRole (timeout 60 s) |
 | (nenhum) | Nada a criar: Transcribe, Polly, Comprehend e Rekognition são APIs da conta |
-| [secrets.tf](terraform/secrets.tf) | Secrets Manager com as credenciais do Mongo |
-| [mongodb.tf](terraform/mongodb.tf) | EC2 com Docker: MongoDB 7.0 + Mongo Express 1.0.2 |
+| [dynamodb.tf](terraform/dynamodb.tf) | Tabela on-demand `reviews` (partição `produto`, ordenação `id`) |
 
 ### Passo 2 — Exportar os outputs
 
@@ -63,24 +83,18 @@ source exportar-outputs.sh
 
 > Abriu um terminal novo? Rode `source exportar-outputs.sh` de novo — as variáveis não sobrevivem à sessão.
 
-### Passo 3 — Semear reviews no MongoDB
+### Passo 3 — Semear reviews no DynamoDB
 
 ```bash
-pip install --user pymongo -q
-
-# Obtém o IP do Mongo DB (o exportar-outputs.sh já fez isso)
-export MONGO_IP=$(cd ~/aie-cloud/aulas/04-servicos-cognitivos/lab/terraform && terraform output -raw mongodb_public_ip)
-echo "IP do Mongo: $MONGO_IP"
-
-# Execução do script (confira o diretório atual: lab/)
+# (de dentro de lab/; o exportar-outputs.sh já exportou REVIEWS_TABLE)
 python3 scripts/semear_reviews.py
 ```
 
-Abra o Mongo Express (`http://$MONGO_IP:8081`, usuário `qcadmin`, senha `QCview2024!`) → `qc-db` → `reviews`.
+Console: **DynamoDB** → Tables → `qc-aula04-xxxxxx-reviews` → **Explore table items**.
 
-> **Você identificou alguma falha de segurança no `semear_reviews.py`? Como consertar?** (compare com a Lambda, que lê a mesma conexão do Secrets Manager)
+> **Para discutir:** procure no [`semear_reviews.py`](scripts/semear_reviews.py) uma senha, um host, uma porta, uma chave. Não há. Quem autoriza a gravação? Compare com um banco autogerenciado numa EC2, que exigiria senha no cliente e porta aberta para a Lambda (exercício 1.3).
 
-**✅ Checkpoint L₁:** 10 reviews em `qc-db.reviews`?
+**✅ Checkpoint L₁:** 10 reviews na tabela?
 
 ---
 
@@ -89,8 +103,6 @@ Abra o Mongo Express (`http://$MONGO_IP:8081`, usuário `qcadmin`, senha `QCview
 ### Passo 1 — Gerar um áudio com o Amazon Polly
 
 ```bash
-pip install --user boto3 -q
-
 # Sem chave: o boto3 usa a credencial do CloudShell (LabRole)
 aws sts get-caller-identity --query Arn --output text
 
@@ -128,7 +140,7 @@ aws lambda update-function-code --function-name "$FUNC_NAME" --zip-file fileb://
 aws lambda wait function-updated --function-name "$FUNC_NAME"
 ```
 
-Explore o [function_app.py](function/function_app.py): as rotas `health` e `transcrever` (Lab 2), `analisar-reviews` (Lab 3) e `analisar-imagem` (Lab 4).
+Explore o [function_app.py](function/function_app.py): as rotas `health` e `transcrever` (Lab 2), `analisar-reviews` (Lab 3) e `analisar-imagem` (Lab 4). Desta vez o roteamento usa o **Powertools for AWS Lambda**: o mesmo decorator `@app.get(...)` do FastAPI da Aula 3, agora dentro da Lambda.
 
 ### Passo 4 — Transcrever
 
@@ -140,6 +152,8 @@ curl -s -X POST "${FUNC_URL}transcrever?arquivo=bbc_exemplo.mp3" | python3 -m js
 ```
 
 O Transcribe é **assíncrono**: a rota inicia um job e espera ele terminar (áudios curtos levam ~10-20 s). Áudio longo devolve `IN_PROGRESS` com o nome do job — consulte depois com `aws transcribe get-transcription-job`.
+
+> **Conexão com a Aula 3 — "na Lambda, você paga a espera":** esta rota passa até 50 s consultando o job a cada 2 s, com a CPU parada, e paga por todo esse tempo. Em produção, a Lambda só iniciaria o job; o Transcribe grava o resultado no S3 e um evento (S3 ou EventBridge) dispara outra Lambda, que roda só quando o resultado está pronto.
 
 > ⚠️ **Esperado, não é falha:** a primeira chamada leva ~1-2 s a mais (cold start).
 
@@ -156,13 +170,15 @@ echo "URL para avaliar reviews: ${FUNC_URL}analisar-reviews?limit=10"
 curl -s -X POST "${FUNC_URL}analisar-reviews?limit=10" | python3 -m json.tool
 ```
 
-A rota lê do MongoDB as reviews **sem** o campo `sentimento` (filtro `{"sentimento": {"$exists": false}}` — evita reprocessar e pagar de novo), roda `batch_detect_sentiment` e `batch_detect_entities` do Comprehend em lotes de até 25, e grava o resultado de volta em cada documento.
+A rota lê do DynamoDB as reviews **sem** o atributo `sentimento` (`attribute_not_exists(sentimento)` — evita reprocessar e pagar de novo), roda `batch_detect_sentiment` e `batch_detect_entities` do Comprehend em lotes de até 25, e grava o resultado de volta em cada item.
+
+> **Lembra do Query × Scan da Aula 2?** Para achar as pendentes, a rota faz um **Scan** com filtro: lê a tabela inteira. Com 10 reviews, tudo bem. Com 10 milhões, cada chamada paga a tabela toda. Em produção: um gatilho do **DynamoDB Streams** analisa cada review no momento em que ela é gravada.
 
 Rode de novo: a resposta é "Nenhuma review nova para analisar" — o filtro funcionou.
 
-### Passo 2 — Validar no Mongo Express
+### Passo 2 — Validar no console
 
-`qc-db` → `reviews`: cada documento ganhou `sentimento`, `sentimento_score` e `entidades`.
+**DynamoDB** → a tabela → **Explore table items**: cada item ganhou `sentimento`, `sentimento_score` e `entidades`.
 
 **✅ Checkpoint L₃:** a distribuição de sentimentos bate com as estrelas das reviews?
 
@@ -190,45 +206,26 @@ A resposta traz `tags` (rótulos com confiança), `objetos` (rótulos com caixa 
 
 ---
 
-## Atividade 5 — Front-end: QC Cognitive Studio (~30 min)
+## Demo — QC Cognitive Studio: duas arquiteturas (professor, ~10 min)
 
-**Objetivo:** sair do `curl` e ver os serviços numa interface — e comparar **duas arquiteturas de acesso à IA** com o mesmo resultado e riscos completamente diferentes.
+**Objetivo:** ver os serviços numa interface e comparar **duas arquiteturas de acesso à IA**, com o mesmo resultado e riscos completamente diferentes.
 
-### Passo 1 — Rodar na SUA máquina
+O professor roda o app [Streamlit](app/README.md) na própria máquina (o navegador só libera o microfone em `localhost` ou HTTPS) e mostra:
 
-Não é no CloudShell: o navegador só libera o microfone em `localhost` ou HTTPS.
+1. **Via Lambda:** só a Function URL preenchida, nenhuma credencial no app — Polly, Transcribe e Rekognition respondem.
+2. **Direto na AWS:** o app usa uma access key na barra lateral para chamar os serviços sem passar pela Lambda.
+3. **Comparar os dois:** os resultados são iguais; o caminho direto é mais rápido, porque tem um salto a menos.
 
-```bash
-# no seu notebook, dentro do repositório clonado
-cd aulas/04-servicos-cognitivos/lab/app
-pip install -r requirements.txt
-streamlit run app.py
-```
+| | Via Lambda | Direto na AWS |
+|---|---|---|
+| Credencial no cliente | não existe | access key |
+| Quem se autentica | a função, com a LabRole | quem tiver a chave |
+| Se o código do cliente vazar | só a URL da função | a credencial vai junto |
+| Latência | um salto a mais | um salto a menos |
 
-Abre em `http://localhost:8501`.
+**A pergunta que fecha a aula:** se o caminho direto é mais rápido e mais simples, por que a arquitetura da disciplina insiste no outro?
 
-### Passo 2 — Preencher a barra lateral
-
-**Comece preenchendo só a Function URL** (`echo $FUNC_URL` no CloudShell), escolha **Via Lambda** e use as três primeiras abas. Elas funcionam sem nenhuma credencial no seu notebook — essa é a demonstração.
-
-Só depois preencha as credenciais (Learner Lab → **AWS Details** → **AWS CLI: Show**) e o `DATA_BUCKET`, e experimente **Comparar os dois**.
-
-### Passo 3 — Explorar
-
-| Aba | O que fazer |
-|---|---|
-| 🔊 Texto → Fala | Sintetize uma frase com o Polly. Baixe o WAV — ele serve de entrada para a próxima aba |
-| 🎤 Fala → Texto | Grave do microfone ou envie o WAV baixado (o Transcribe processa em lote: aguarde) |
-| 🖼️ Visão + Espacial | Envie uma foto de produto: rótulos, texto e caixas desenhadas sobre a imagem |
-| 🏛️ Arquitetura | A comparação e as perguntas de discussão |
-
-### Passo 4 — Comparar (10 min, em grupo)
-
-Marque **Comparar os dois**. Os resultados são iguais; os tempos, não — o caminho direto tem um salto a menos.
-
-**A pergunta que fecha a aula:** se o caminho direto é mais rápido e mais simples, por que a arquitetura da disciplina insiste no outro? Discuta com a tabela da aba **Arquitetura**.
-
-**✅ Checkpoint L₅:** as três primeiras abas funcionam com as credenciais em branco? Você consegue explicar por quê?
+> **Opcional para o aluno:** o app roda no seu notebook (`pip install -r requirements.txt && streamlit run app.py`), fora da política "nada instalado". As instruções completas estão no [README do app](app/README.md).
 
 ---
 
@@ -239,7 +236,7 @@ cd ~/aie-cloud/aulas/04-servicos-cognitivos/lab/terraform
 terraform destroy -auto-approve
 ```
 
-Confira o crédito consumido na página do Learner Lab. Os jobs do Transcribe ficam listados no console por 90 dias, mas não cobram nada depois de concluídos.
+**Conferir:** Tag Editor com a tag `aula = 4` → a busca deve voltar **vazia**; e o crédito consumido na página do Learner Lab. Os jobs do Transcribe ficam listados no console por 90 dias, mas não cobram nada depois de concluídos.
 
 ---
 
@@ -254,7 +251,7 @@ POST /analisar-reviews?limit=N            ← Comprehend (sentimento das reviews
 GET  /analisar-imagem?arquivo=...         ← Rekognition (busca visual de produtos)
 ```
 
-Os agentes podem: ouvir o cliente no atendimento por voz, entender o sentimento das reviews para recomendar produtos e analisar a foto que o cliente enviou para achar o produto.
+Somadas à tool de catálogo da Aula 3 (`GET /produtos`, em outra Lambda), são quatro tools. Os agentes podem: buscar produtos, ouvir o cliente no atendimento por voz, entender o sentimento das reviews para recomendar produtos e analisar a foto que o cliente enviou para achar o produto.
 
 ---
 
@@ -263,15 +260,15 @@ Os agentes podem: ouvir o cliente no atendimento por voz, entender o sentimento 
 | Problema | Causa | Solução |
 |----------|-------|---------|
 | `{"status": "placeholder"}` em qualquer rota | O código real ainda não foi publicado | Passo 3 da Atividade 2 |
-| `Runtime.ImportModuleError: No module named 'aws_lambda_powertools'` | O zip foi feito sem as dependências | Refaça o Passo 3 (pasta `pacote/` com `pip install -t`) |
+| `Runtime.ImportModuleError: No module named 'aws_lambda_powertools'` | O zip foi feito sem as dependências | Refaça o Passo 3 (pasta `pacote/` com `pip install -t` e os flags de plataforma) |
 | `403 Forbidden` na Function URL | Falta uma das duas permissões da URL pública | `terraform apply` de novo; `aws lambda get-policy --function-name "$FUNC_NAME"` |
 | `/transcrever` → `BadRequestException ... media format` | Extensão diferente do formato real do áudio | Renomeie o arquivo ou converta |
 | `/transcrever` → `IN_PROGRESS` | Áudio longo para os 60 s da Lambda | `aws transcribe get-transcription-job --transcription-job-name <job>` |
-| `/analisar-reviews` → `ServerSelectionTimeoutError` | EC2 do Mongo ainda subindo | Aguarde 2-3 min após o apply |
-| `/analisar-reviews` → "Nenhuma review nova" | Todas já analisadas | Correto — rode `semear_reviews.py` para reinserir |
-| `semear_reviews.py` não conecta | `MONGO_IP` vazio | `source exportar-outputs.sh` |
+| `/analisar-reviews` → `ResourceNotFoundException` | A Lambda não achou a tabela | `terraform apply` de novo; confira `REVIEWS_TABLE` em Lambda → Configuration → Environment variables |
+| `/analisar-reviews` → "Nenhuma review nova" | Todas já analisadas | Correto — rode `semear_reviews.py` para reinserir (o `put_item` zera a análise) |
+| `semear_reviews.py` → "Exporte REVIEWS_TABLE" | Sessão nova do CloudShell | `source exportar-outputs.sh` |
+| `check_servicos.sh` com ✗ | Sessão do Learner Lab expirada, ou serviço fora do Learner Lab | **Start Lab** e CloudShell novo; se persistir, avise o professor antes do lab |
 | `AccessDeniedException` no Comprehend/Rekognition | Sessão do Learner Lab expirou | **Start Lab** e CloudShell novo |
-| Mongo Express pede senha | Basic auth ligado de propósito | `qcadmin` / `QCview2024!` |
 
 ---
 

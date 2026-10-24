@@ -3,12 +3,12 @@ Lambda — Aula 4 Quantum Commerce: serviços de IA da AWS por trás de uma Func
 
 Sem chave em lugar nenhum: Transcribe, Polly, Comprehend e Rekognition são APIs
 da conta, autorizadas pela execution role da função (no Learner Lab, a LabRole).
-A senha do MongoDB vem do Secrets Manager, lida em runtime.
+As reviews ficam no DynamoDB, também acessado pela LabRole: nem senha de banco existe.
 
 Rotas das atividades (arquivos no bucket de dados):
   GET  /health
   POST /transcrever?arquivo=audio-teste.mp3&idioma=pt-BR   (Transcribe, S3 audios/)
-  POST /analisar-reviews?limit=10                           (Comprehend + MongoDB)
+  POST /analisar-reviews?limit=10                           (Comprehend + DynamoDB)
   GET  /analisar-imagem?arquivo=produto.jpg                 (Rekognition, S3 imagens/)
 
 Rotas que recebem o arquivo NO CORPO (usadas pelo app Streamlit):
@@ -26,6 +26,7 @@ import time
 import urllib.request
 import uuid
 import wave
+from decimal import Decimal
 
 import boto3
 from aws_lambda_powertools import Logger
@@ -35,7 +36,7 @@ logger = Logger()
 app = LambdaFunctionUrlResolver(serializer=lambda o: json.dumps(o, ensure_ascii=False, default=str))
 
 DATA_BUCKET = os.environ["DATA_BUCKET"]
-MONGO_SECRET_ID = os.environ.get("MONGO_SECRET_ID", "")
+REVIEWS_TABLE = os.environ.get("REVIEWS_TABLE", "")
 
 # Clientes criados fora do handler: reaproveitados entre invocações quentes
 s3 = boto3.client("s3")
@@ -43,6 +44,7 @@ transcribe = boto3.client("transcribe")
 polly = boto3.client("polly")
 comprehend = boto3.client("comprehend")
 rekognition = boto3.client("rekognition")
+dynamodb = boto3.resource("dynamodb")
 
 VOZES = {"Camila": "pt-BR", "Vitoria": "pt-BR", "Thiago": "pt-BR", "Joanna": "en-US", "Lucia": "es-ES"}
 FORMATOS_AUDIO = {"mp3", "mp4", "wav", "flac", "ogg", "amr", "webm", "m4a"}
@@ -147,33 +149,36 @@ def transcrever():
         return _erro(str(e))
 
 
-_mongo_client = None
+def _pendentes(tabela, limite: int) -> list[dict]:
+    """Reviews ainda sem sentimento. Scan com filtro: ok para dezenas de itens.
 
-
-def _colecao_reviews():
-    """Conecta no MongoDB com a URI do Secrets Manager (uma vez por ambiente quente)."""
-    global _mongo_client
-    from pymongo import MongoClient  # import tardio: só esta rota precisa
-
-    if _mongo_client is None:
-        segredo = boto3.client("secretsmanager").get_secret_value(SecretId=MONGO_SECRET_ID)
-        _mongo_client = MongoClient(json.loads(segredo["SecretString"])["uri"], serverSelectionTimeoutMS=5000)
-    return _mongo_client["qc-db"]["reviews"]
+    Em escala, o Scan lê (e cobra) a tabela inteira a cada chamada. Alternativas:
+    um índice esparso de "pendentes" ou um gatilho do DynamoDB Streams que analisa
+    cada review no momento em que ela é gravada.
+    """
+    itens, kwargs = [], {"FilterExpression": "attribute_not_exists(sentimento)"}
+    while len(itens) < limite:
+        pagina = tabela.scan(**kwargs)
+        itens.extend(pagina["Items"])
+        if "LastEvaluatedKey" not in pagina:
+            break
+        kwargs["ExclusiveStartKey"] = pagina["LastEvaluatedKey"]
+    return itens[:limite]
 
 
 @app.get("/analisar-reviews")
 @app.post("/analisar-reviews")
 def analisar_reviews():
     """
-    Lê reviews ainda não analisadas do MongoDB, roda sentimento + entidades no
-    Amazon Comprehend (em lote) e grava o resultado de volta no documento.
+    Lê reviews ainda não analisadas do DynamoDB, roda sentimento + entidades no
+    Amazon Comprehend (em lote) e grava o resultado de volta em cada item.
     POST /analisar-reviews?limit=10
     """
     limit = int(app.current_event.get_query_string_value("limit", "10"))
     try:
-        col = _colecao_reviews()
+        tabela = dynamodb.Table(REVIEWS_TABLE)
         # O filtro evita reprocessar (e pagar de novo por) reviews já analisadas
-        items = list(col.find({"sentimento": {"$exists": False}}).limit(limit))
+        items = _pendentes(tabela, limit)
         if not items:
             return {"msg": "Nenhuma review nova para analisar. Todas já processadas."}
 
@@ -194,13 +199,18 @@ def analisar_reviews():
             if s is None:  # item foi para a ErrorList (texto vazio, longo demais...)
                 continue
             e = entidades.get(idx, {"Entities": []})
-            col.update_one({"_id": item["_id"]}, {"$set": {
-                "sentimento": s["Sentiment"],
-                "sentimento_score": {k.lower(): round(v, 3) for k, v in s["SentimentScore"].items()},
-                "entidades": [{"text": x["Text"], "type": x["Type"], "score": round(x["Score"], 3)}
-                              for x in e["Entities"]],
-            }})
-            resultados.append({"id": item.get("id"), "produto": item.get("produto"), "sentimento": s["Sentiment"]})
+            # O DynamoDB não aceita float: números decimais vão como Decimal
+            tabela.update_item(
+                Key={"produto": item["produto"], "id": item["id"]},
+                UpdateExpression="SET sentimento = :s, sentimento_score = :sc, entidades = :e",
+                ExpressionAttributeValues={
+                    ":s": s["Sentiment"],
+                    ":sc": {k.lower(): Decimal(str(round(v, 3))) for k, v in s["SentimentScore"].items()},
+                    ":e": [{"text": x["Text"], "type": x["Type"], "score": Decimal(str(round(x["Score"], 3)))}
+                           for x in e["Entities"]],
+                },
+            )
+            resultados.append({"id": item["id"], "produto": item["produto"], "sentimento": s["Sentiment"]})
 
         contagem = {k: sum(1 for r in resultados if r["sentimento"] == k)
                     for k in ("POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED")}

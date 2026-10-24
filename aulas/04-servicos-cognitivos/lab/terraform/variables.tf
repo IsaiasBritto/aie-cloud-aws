@@ -3,9 +3,3 @@ variable "region" {
   type        = string
   default     = "us-east-1"
 }
-
-variable "mongo_instance_type" {
-  description = "Tipo da EC2 do MongoDB"
-  type        = string
-  default     = "t3.small"
-}

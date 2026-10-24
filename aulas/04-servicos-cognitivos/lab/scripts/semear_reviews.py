@@ -1,53 +1,24 @@
 """
-Semeia reviews de exemplo no MongoDB da Aula 4.
+Semeia 10 reviews de exemplo na tabela DynamoDB da Aula 4.
 
 Uso:  python3 scripts/semear_reviews.py
-Variável de ambiente: MONGO_IP (IP público da EC2 do MongoDB)
-  export MONGO_IP=$(cd ~/aie-cloud/aulas/04-servicos-cognitivos/lab/terraform && terraform output -raw mongodb_public_ip)
+Variável de ambiente: REVIEWS_TABLE (source exportar-outputs.sh)
 
-⚠ EXERCÍCIO DE SEGURANÇA: este script tem uma falha de propósito. Você consegue
-achá-la? Como consertar? (dica: compare com a Lambda, que lê a mesma conexão do
-Secrets Manager.)
+Repare no que NÃO existe aqui: senha de banco, host, porta, chave de acesso.
+O boto3 grava na tabela com a credencial da sessão do CloudShell (LabRole), e a
+autorização é uma policy do IAM (dynamodb:BatchWriteItem no ARN da tabela).
+Compare com um banco autogerenciado numa EC2 (exercício 1.3).
 """
 import os
 import sys
-import time
 
-MONGO_IP = os.environ.get("MONGO_IP")
-if not MONGO_IP:
-    print("Exporte MONGO_IP com o IP da EC2:")
-    print("  export MONGO_IP=$(cd ~/aie-cloud/aulas/04-servicos-cognitivos/lab/terraform && terraform output -raw mongodb_public_ip)")
+import boto3
+
+TABELA = os.environ.get("REVIEWS_TABLE")
+if not TABELA:
+    print("Exporte REVIEWS_TABLE com o nome da tabela:")
+    print("  source ~/aie-cloud/aulas/04-servicos-cognitivos/lab/exportar-outputs.sh")
     sys.exit(1)
-
-try:
-    from pymongo import MongoClient, errors
-except ImportError:
-    print("Instalando pymongo...")
-    import subprocess
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "pymongo", "-q"])
-    from pymongo import MongoClient, errors
-
-URI = f"mongodb://admin:QCadmin2024!@{MONGO_IP}:27017/?authSource=admin"
-
-print(f"Conectando ao MongoDB em {MONGO_IP}:27017...")
-for tentativa in range(12):
-    try:
-        client = MongoClient(URI, serverSelectionTimeoutMS=5000)
-        client.server_info()
-        print("✓ MongoDB pronto!")
-        break
-    except errors.ServerSelectionTimeoutError:
-        print(f"  Aguardando MongoDB... (tentativa {tentativa + 1}/12)")
-        time.sleep(10)
-else:
-    print("✗ MongoDB não respondeu após 2 min — a EC2 ainda está subindo os containers?")
-    sys.exit(1)
-
-db = client["qc-db"]
-reviews_col = db["reviews"]
-
-# Limpar reviews existentes (idempotente)
-reviews_col.delete_many({})
 
 reviews = [
     {"id": "r001", "produto": "Notebook Pro X", "texto": "Excelente laptop, a bateria dura mais de 8 horas e o processador é muito rápido.", "estrelas": 5},
@@ -62,14 +33,17 @@ reviews = [
     {"id": "r010", "produto": "Caixa Bluetooth QC-Bass", "texto": "Som cheio e potente. Valeu cada centavo. Já é minha segunda compra.", "estrelas": 5},
 ]
 
-result = reviews_col.insert_many(reviews)
-print(f"✓ {len(result.inserted_ids)} reviews inseridas em qc-db.reviews")
+tabela = boto3.resource("dynamodb").Table(TABELA)
+
+# put_item sobrescreve o item inteiro: rodar de novo "zera" a análise (idempotente)
+with tabela.batch_writer() as lote:
+    for r in reviews:
+        lote.put_item(Item=r)
+
+print(f"✓ {len(reviews)} reviews gravadas em {TABELA}")
 print("\nDistribuição de estrelas:")
 for stars in range(1, 6):
     count = sum(1 for r in reviews if r["estrelas"] == stars)
     bar = "★" * stars + "☆" * (5 - stars)
     print(f"  {bar}: {count} reviews")
-
-client.close()
-print("\n✅ MongoDB pronto para uso!")
-print(f"   Mongo Express: http://{MONGO_IP}:8081 (usuário qcadmin, senha QCview2024!)")
+print("\nConfira no console: DynamoDB → Tables → a tabela → Explore table items")

@@ -39,10 +39,6 @@ locals {
     projeto      = "quantum-commerce"
     provisionado = "terraform"
   }
-  # Credenciais do MongoDB do LAB. Ficam no Secrets Manager para a Lambda;
-  # o semear_reviews.py as tem no código DE PROPÓSITO (é o exercício de segurança).
-  mongo_admin_pass   = "QCadmin2024!"
-  mongo_express_pass = "QCview2024!"
 }
 
 # No Learner Lab não se cria IAM role: a Lambda usa a LabRole
@@ -50,9 +46,6 @@ data "aws_iam_role" "lab" {
   name = "LabRole"
 }
 
-data "aws_vpc" "padrao" {
-  default = true
-}
 
 # Nada a criar para Transcribe, Polly, Comprehend e Rekognition:
 # são APIs da conta, liberadas por IAM (a LabRole já tem acesso).

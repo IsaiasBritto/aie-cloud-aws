@@ -15,17 +15,7 @@ output "function_url" {
   value       = aws_lambda_function_url.cognitivo.function_url
 }
 
-output "mongodb_public_ip" {
-  description = "IP público da EC2 com MongoDB"
-  value       = aws_instance.mongo.public_ip
-}
-
-output "mongo_express_url" {
-  description = "Mongo Express (usuário qcadmin, senha QCview2024!) — ~2 min após o apply"
-  value       = "http://${aws_instance.mongo.public_ip}:8081"
-}
-
-output "mongo_secret_id" {
-  description = "Segredo com a URI do MongoDB (lido pela Lambda)"
-  value       = aws_secretsmanager_secret.mongo.name
+output "reviews_table" {
+  description = "Tabela DynamoDB de reviews (partição produto, ordenação id)"
+  value       = aws_dynamodb_table.reviews.name
 }
