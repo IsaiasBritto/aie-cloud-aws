@@ -8,11 +8,27 @@
 ## Visão geral do lab
 
 ```
-Lab 1 — Tag Editor + Trusted Advisor (+ Cost Explorer e Budget na tela do professor)  ~25 min  (L₁)
-Lab 2 — AWS Pricing Calculator: TCO da arquitetura QC                                ~30 min  (L₂)
+Lab 1 — Tag Editor + Trusted Advisor (+ Cost Explorer e Budget na tela do professor)  ~15 min  (L₁)
+Lab 2 — AWS Pricing Calculator: TCO da QC — começa em aula, termina no trabalho       ~15 min  (L₂)
 Lab 3 — FinOps na Eva: custo por turno no CloudWatch Logs Insights                   ~35 min  (L₃)
-Trabalho assistido em grupo — projeto integrado final                                ~1h40
+Trabalho assistido em grupo — projeto integrado final (inclui terminar o L₂)         ~1h25
 ```
+
+### O roteiro das 4 horas
+
+| Horário | Bloco | O que acontece |
+|---|---|---|
+| 0:00 – 0:05 | Abertura | Engenharia é decisão econômica |
+| 0:05 – 0:40 | Bloco 1 · Os 3 pilares | Teoria (20 min) + **L₁** (15 min) |
+| 0:40 – 1:15 | Bloco 2 · Otimização + LGPD | Teoria (20 min) + **início do L₂** (15 min) |
+| 1:15 – 1:30 | Intervalo | |
+| 1:30 – 2:25 | Bloco 3 · FinOps em IA | Teoria (20 min) + **L₃** (35 min) |
+| 2:25 – 2:35 | Fechamento | Crawl · Walk · Run e o que vai para o projeto final |
+| 2:35 – 4:00 | Trabalho assistido | Projeto integrado final — **terminar o L₂ aqui** |
+
+> **A Aula 6 não tem entrega própria.** O L₂ é a seção `finops/` do **projeto integrado
+> final** (50% da nota); o L₃ é o `finops-eva/`, opcional e recomendado. A rubrica segue
+> com 5 entregas de 10% + o projeto final.
 
 **Sem destroy hoje** — o trabalho é principalmente **analítico**. A única coisa que o
 Lab 3 cria é um log group com retenção de 7 dias (centavos, e some sozinho).
@@ -79,7 +95,8 @@ aws resourcegroupstaggingapi get-resources --tag-filters Key=aula \
 Console → busque **Trusted Advisor** → categoria **Cost optimization**.
 
 No suporte **Basic** (o do Learner Lab), as checagens de custo aparecem **bloqueadas**
-(exigem Business); as de **segurança** e **limites de serviço** ficam liberadas. As
+(exigem **Business Support+** ou superior); as de **limites de serviço** e algumas de
+**segurança** e **tolerância a falhas** ficam liberadas. As
 recomendações de custo mais comuns, quando liberadas:
 
 - EC2 com baixa utilização (right-sizing)
@@ -116,9 +133,9 @@ Advisor mostrou (ou bloqueou).
 ## Lab 2 — AWS Pricing Calculator: TCO da QC
 
 **Objetivo:** estimar o **custo mensal** da arquitetura completa da Quantum Commerce
-em **escala real** (não free tier). Este resultado entra no projeto integrado final
-(seção `finops/`). **Vale como entrega final de FinOps** — pode ser feito em grupo,
-na aula ou depois.
+em **escala real** (não free tier). Este resultado **é a seção `finops/` do projeto
+integrado final** — não é uma entrega separada. Começa em aula (15 min: montar a
+estimativa com os primeiros itens) e termina no trabalho assistido.
 
 ### Cenário da QC
 
@@ -127,19 +144,23 @@ Você é arquiteto cloud apresentando à diretoria da QC. Estime o TCO mensal co
 | Componente | Volume mensal esperado |
 |------------|------------------------|
 | **Amazon S3** | 10 TB (5 TB Standard + 3 TB Standard-IA + 2 TB Glacier Deep Archive) — imagens + logs |
-| **Amazon RDS** | PostgreSQL db.r6g.xlarge (4 vCPU) **Multi-AZ** + 100 GB gp3 |
+| **Amazon RDS** | PostgreSQL db.r6g.xlarge (4 vCPU) **Multi-AZ** + 100 GB gp3 — com **pgvector** (a busca vetorial da Aula 4) |
 | **Amazon DynamoDB** | Provisionado: 2.000 RCU + 500 WCU + 50 GB |
-| **OpenSearch** | Amazon OpenSearch Service: 3 nós r6g.large.search (3 AZs) + 1 TB gp3 |
 | **AWS Lambda** | 5M req/mês · 512 MB · 300 ms + **Provisioned Concurrency 2** (sempre quente) |
 | **Serviços de IA** | Comprehend: 1M análises de sentimento + Transcribe: 5.000 h + Rekognition: 500 mil imagens |
-| **Amazon SageMaker AI** | Notebook ml.t3.medium ocasional + 1 endpoint de inferência ml.m5.xlarge (**24/7**) |
+| **Amazon Bedrock** | Os agentes (Eva/Deva): **300 mil turnos/mês** × ~4.000 tokens de entrada e ~270 de saída por turno (a média medida na amostra da Eva) · Claude Haiku 5.5 ou Amazon Nova Lite |
+| **Amazon ECS Fargate** | A Eva web: 1 tarefa de 0,5 vCPU / 1 GB, 24/7 |
 | **Amazon CloudWatch** | 5 GB de logs/mês |
 | **Data transfer out** | 500 GB/mês saindo para CDN externa |
+| *Amazon SageMaker AI* | *Opcional — só se o grupo seguiu o trilho complementar de MLOps:* 1 endpoint **serverless** para o `/recomendar` |
+
+> **Onde está o OpenSearch?** Saiu de propósito: a disciplina fez busca vetorial com
+> **pgvector no RDS**. Um ADR do projeto final pode comparar os dois — com este número na mão.
 
 ### Passo 1 — Adicionar cada serviço
 
 1. Em [calculator.aws](https://calculator.aws) → **Create estimate** → adicione os
-   **9 itens** acima, um por um.
+   **9 itens** acima (10, se o grupo usou SageMaker), um por um.
 2. Região **US East (N. Virginia)** para tudo (padrão da disciplina).
 3. Preencha os volumes da tabela. Dê a cada item um **nome** e um **grupo**
    (ex.: grupo "Dados", "IA", "Compute") — a exportação sai organizada.
@@ -164,8 +185,10 @@ Exemplos comuns:
 
 - **Comprehend:** trocar por um modelo pequeno no Bedrock em **lote** (batch, −50%),
   se a tarefa for mais que sentimento
-- **Endpoint SageMaker 24/7:** **Serverless Inference** ou **Batch Transform** (paga
-  só quando roda) — vocês fizeram isso na Aula 5
+- **Bedrock:** **prompt caching** do system prompt (o `agent.md` entra em toda iteração),
+  modelo menor para tarefas simples, ou **lote** (−50%) para o que não é conversa
+- **Endpoint SageMaker** (se houver): **Serverless Inference** ou **Batch Transform**
+  (paga só quando roda)
 - **Egress:** **CloudFront** na frente do S3 — a transferência S3 → CloudFront não é cobrada
 - **Lambda com Provisioned Concurrency:** voltar ao sob demanda se o cold start for
   aceitável (o custo fixo vai a zero)
@@ -180,13 +203,17 @@ Exemplos comuns:
 
 ### Passo 5 — Comparar com Reserved Instances e Savings Plans
 
-Para os itens **24/7** (RDS, OpenSearch, Lambda com Provisioned Concurrency se mantida,
+Para os itens **24/7** (RDS, DynamoDB provisionado, Lambda com Provisioned Concurrency se mantida, Fargate,
 endpoint SageMaker):
 
 1. Reabra a estimativa → **Edit** em cada item 24/7
-2. Troque o modelo de preço para **Reserved** (RDS, OpenSearch) ou **Savings Plans**
-   (Compute SP cobre Lambda; *SageMaker Savings Plans* cobre o endpoint), 1 ou 3 anos
-3. Compare a economia
+2. Troque o modelo de preço, 1 ano sem pagamento antecipado:
+   - **RDS e DynamoDB:** **Reserved** *ou* **Database Savings Plans** (lançados em
+     dez/2025, até **35%**, valem para RDS, Aurora, DynamoDB e outros bancos) — compare os dois
+   - **Lambda e Fargate:** **Compute Savings Plans** (até 66%)
+   - **Endpoint SageMaker**, se houver: *SageMaker Savings Plans*
+3. Compare a economia — e repare no que **não** tem compromisso: o Bedrock on-demand e
+   os serviços de IA por unidade só baixam com arquitetura (cache, lote, modelo menor)
 
 **Reflexão (escrever em `finops/analise-otimizacao.md`):**
 
@@ -194,6 +221,8 @@ a) Qual o TCO mensal estimado em USD da arquitetura QC sem otimização?
 b) Qual o TCO otimizado (com suas 3 propostas aplicadas)?
 c) Qual a economia % com compromisso de 1 ano (RI ou Savings Plans)?
 d) **Como você apresentaria esses números ao CFO da QC** (em 1 parágrafo)?
+e) **LGPD:** que linha do TCO muda por causa da lei — retenção, exclusão, região dos
+   dados ou log sem dado pessoal? (Bloco 2: a lei também é uma linha de custo.)
 
 **✅ Checkpoint L₂:** estimativa exportada (`.csv`) + análise de 3 otimizações + cenário com compromisso.
 
@@ -222,14 +251,16 @@ bash finops/carregar-amostra.sh
 ```
 
 O script cria o log group **`/eva/turnos`** (retenção 7 dias, tag `projeto=eva`) e
-envia o log com os horários deslocados para as últimas ~27 horas.
+envia o log com os horários deslocados para as últimas ~26 horas — em **dois lotes**,
+porque a AWS recusa um lote que cubra mais de 24 horas.
 
 > Publicou a sua própria Eva na Aula 5? Use o log group dela (`/ecs/eva/<sufixo>`)
 > nas consultas abaixo — o formato é o mesmo.
 
 ### Passo 2 — Onde o dinheiro está
 
-- **Tela do professor:** Cost Explorer por tag `projeto`, depois `responsavel`, depois *Service*.
+- **Tela do professor:** Cost Explorer por tag `projeto`, depois `responsavel` (a tag de
+  chargeback da Eva: quem gastou), depois *Service*.
 - **Na sua conta:** Tag Editor → *All supported resource types* → busque recursos
   **sem** a tag `projeto` (*Tag key* `projeto`, valor *(not tagged)*). Lista vazia é o
   esperado: qualquer recurso ali é **custo sem dono**.
@@ -289,13 +320,20 @@ aws logs put-metric-filter --log-group-name /eva/turnos \
 
 aws cloudwatch put-metric-alarm --alarm-name eva-tokens-saida-hora \
   --namespace Eva --metric-name TokensSaida --statistic Sum \
-  --period 3600 --evaluation-periods 1 --threshold 20000 \
+  --period 3600 --evaluation-periods 1 --threshold 15000 \
   --comparison-operator GreaterThanThreshold --treat-missing-data notBreaching
 ```
 
-O filtro só conta eventos **novos**. Rode o `carregar-amostra.sh` de novo e, em alguns
-minutos, veja a métrica `Eva / TokensSaida` em CloudWatch → *Metrics* e o estado do
-alarme em *Alarms*.
+O filtro só conta eventos **novos**. Agora simule o agente em laço — as mesmas ~200
+chamadas comprimidas em 10 minutos:
+
+```bash
+bash finops/carregar-amostra.sh --rajada
+```
+
+Em alguns minutos, a métrica `Eva / TokensSaida` aparece em CloudWatch → *Metrics* e o
+alarme vai para **In alarm** em *Alarms*. No uso normal o pico é de ~3.500 tokens de
+saída por hora; na rajada, ~34 mil em 10 minutos. O limite de 15 mil fica entre os dois.
 
 > **Um agente em laço não derruba nada — ele só gasta.** Não há erro, não há
 > lentidão. O alarme por hora é o cinto de segurança que o `EVA_MAX_ITERACOES` não
@@ -325,7 +363,7 @@ aws logs delete-log-group --log-group-name /eva/turnos
 
 ---
 
-## Trabalho assistido em grupo (1h40)
+## Trabalho assistido em grupo (1h25)
 
 **Esta é a parte mais valiosa da Aula 6.** O professor está disponível em tempo real.
 
@@ -341,7 +379,7 @@ aws logs delete-log-group --log-group-name /eva/turnos
 
 #### Infraestrutura
 
-- [ ] `terraform/main.tf` consolidado provisionando a infra QC (S3, RDS + pgvector, DynamoDB, Secrets Manager, Lambda + Function URL, ECR/ECS, bucket e Registry do SageMaker)
+- [ ] `terraform/main.tf` consolidado provisionando a infra QC (S3, RDS + pgvector, DynamoDB, Secrets Manager, Lambda + Function URL, ECR/ECS; bucket e Registry do SageMaker só se o grupo seguiu o trilho de MLOps)
 - [ ] `terraform/variables.tf` + `terraform/outputs.tf`
 - [ ] `terraform validate` e `terraform plan` sem erros (validado durante a aula)
 
@@ -393,12 +431,13 @@ aws logs delete-log-group --log-group-name /eva/turnos
 | Tag Editor não acha nada | Região errada (use `us-east-1`) ou tudo já foi destruído — ótimo sinal |
 | Trusted Advisor com checagens de custo bloqueadas | Esperado no suporte Basic. Registre isso na análise |
 | Pricing Calculator sem um tipo de instância em N. Virginia | Use o mais próximo e registre a troca na análise |
-| Estimativa muito alta (> US$ 10k/mês) | Revise volumes — Transcribe (5.000 h) e OpenSearch costumam disparar |
-| Estimativa muito baixa (< US$ 500/mês) | Revise volumes — provavelmente ficou free tier em algum item |
+| Estimativa fora da faixa de US$ 2 mil a 10 mil/mês | Revise volumes e unidades: horas × minutos no Transcribe, milhões de tokens no Bedrock, free tier ligado sem querer |
+| Transcribe parece barato demais | Não é erro: o lote padrão custa hoje US$ 0,006/min (preço único). Era 4× mais |
 | `carregar-amostra.sh`: "Sem credencial AWS" | Learner Lab desligado — Start Lab e reabra o CloudShell |
 | Logs Insights volta vazio | Janela de tempo curta: use **48 h**; confira o log group `/eva/turnos` |
 | `custo_estimado_usd` zerado | Os `EVA_PRECO_*` não estavam exportados. Exporte e rode o carregador de novo (stream novo) |
-| Métrica `Eva/TokensSaida` não aparece | O filtro só conta eventos posteriores a ele: rode o carregador de novo |
+| Métrica `Eva/TokensSaida` não aparece | O filtro só conta eventos posteriores a ele: rode `carregar-amostra.sh --rajada` |
+| `InvalidParameterException` no carregador | Versão antiga do repositório (lote único de 26 h): `git -C ~/aie-cloud pull` |
 
 ---
 
@@ -410,6 +449,8 @@ aws logs delete-log-group --log-group-name /eva/turnos
 - [AWS Trusted Advisor](https://docs.aws.amazon.com/awssupport/latest/user/trusted-advisor.html)
 - [AWS Pricing Calculator](https://calculator.aws)
 - [Savings Plans](https://docs.aws.amazon.com/savingsplans/latest/userguide/what-is-savings-plans.html)
+- [Database Savings Plans (dez/2025)](https://aws.amazon.com/about-aws/whats-new/2025/12/database-savings-plans-savings)
+- [PutLogEvents — limites de um lote](https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutLogEvents.html)
 - [CloudWatch Logs Insights](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/AnalyzingLogData.html)
 - [FinOps Foundation Framework](https://www.finops.org/framework/)
 - [Amazon Bedrock pricing](https://aws.amazon.com/bedrock/pricing/)

@@ -17,7 +17,7 @@ O **Projeto Integrado Final** é a consolidação de tudo o que o grupo construi
 4. **Análise FinOps** com estimativa de custo + propostas de otimização
 5. **Reflexão estratégica** sobre como a arquitetura evoluiria nos próximos 12 meses
 
-> A Aula 6 dedica **1h40 de trabalho assistido** para vocês consolidarem isso com suporte do professor. A semana seguinte é para polir antes da entrega.
+> A Aula 6 dedica **1h25 de trabalho assistido** para vocês consolidarem isso com suporte do professor. A semana seguinte é para polir antes da entrega.
 
 ---
 
@@ -210,7 +210,8 @@ Export do AWS Pricing Calculator (do L₂ da Aula 6) + análise:
 
 - Top 3 itens mais caros
 - 3 propostas de otimização com economia estimada
-- Comparação com Reserved Instances / Savings Plans de 1 ano
+- Comparação com Reserved Instances / Savings Plans de 1 ano (Compute e Database)
+- Uma linha para o custo de tokens dos agentes no Bedrock (L₂ da Aula 6)
 - TCO mensal final (otimizado vs não-otimizado)
 - Parágrafo "como apresentar para o CFO"
 
@@ -221,8 +222,8 @@ Export do AWS Pricing Calculator (do L₂ da Aula 6) + análise:
 | Trimestre | Foco | Entregáveis |
 |-----------|------|-------------|
 | Q1 | Estabilizar fundação | (o que foi feito + observabilidade básica) |
-| Q2 | Otimização FinOps + segurança | (Reserved Instances, KeyVault avançado) |
-| Q3 | Escalar AI capabilities | (Custom Vision, fine-tuning, vector search verdadeira) |
+| Q2 | Otimização FinOps + segurança | (Reserved Instances / Savings Plans, KMS e Secrets Manager com rotação) |
+| Q3 | Escalar AI capabilities | (Rekognition Custom Labels, agentes com fronteira em código, busca vetorial em escala) |
 | Q4 | Multi-cloud / preparação para escala global | (CDN, multi-region, DR) |
 
 Inclua também:
@@ -271,7 +272,7 @@ Tabela mostrando quem fez o quê em cada aula e no projeto final:
 
 | Dia | Tarefa |
 |-----|--------|
-| Dia 0 (Aula 6) | Aproveitar 1h40 de trabalho assistido para esclarecer dúvidas; gerar estimativa FinOps; identificar gaps |
+| Dia 0 (Aula 6) | Aproveitar 1h25 de trabalho assistido para esclarecer dúvidas; gerar estimativa FinOps; identificar gaps |
 | Dia 1 | Consolidar Terraform (mais demorado) |
 | Dia 2 | Documentar 5 tools (`tools-spec.md` + docstrings) |
 | Dia 3 | Diagrama final + `decisoes-tecnicas.md` |
