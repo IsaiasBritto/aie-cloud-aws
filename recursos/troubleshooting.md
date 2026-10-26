@@ -66,6 +66,19 @@ justamente para economizar espaço.
 O Terraform fica no seu `$HOME/bin`. Rode `source ~/.bashrc` ou reinstale:
 `bash ~/aie-cloud/aulas/01-fundamentos-iac/lab/install_terraform.sh`.
 
+### `Can not perform a '--user' install. User site-packages are not visible in this virtualenv.`
+
+O Python do CloudShell (3.13) já roda dentro de um virtualenv, e aí o `pip install --user`
+é recusado. Crie um venv em `/tmp` (fora do `$HOME` de 1 GB) e instale sem `--user`:
+
+```bash
+python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate
+pip install --no-cache-dir boto3 "psycopg[binary]"
+```
+
+O `/tmp` é apagado quando a sessão reinicia: se voltar o `ModuleNotFoundError`, repita os
+dois comandos. Os `exportar-outputs.sh` das aulas 2 e 4 já criam e ativam esse venv.
+
 ### Python 3.9 no CloudShell × Python 3.12 na Lambda
 
 Pacotes com binário (pydantic, pymongo...) instalados no CloudShell não servem na

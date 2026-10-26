@@ -120,7 +120,8 @@ conforme a versão do console) → o grupo `recomendador-qc-<sufixo>`, ainda vaz
 ### Passo 1 — Dependências (leves: sem torch)
 
 ```bash
-pip3 install --user --quiet "scikit-learn" pandas joblib "mlflow-skinny<3"
+python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate
+pip install --quiet "scikit-learn" pandas joblib "mlflow-skinny<3"
 ```
 
 > O `$HOME` do CloudShell tem 1 GB. `mlflow-skinny` é o MLflow sem o servidor web:

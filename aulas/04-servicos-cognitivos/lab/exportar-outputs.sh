@@ -27,8 +27,13 @@ FUNC_URL="$(_qc_out function_url)"
 REVIEWS_TABLE="$(_qc_out reviews_table)"
 export DATA_BUCKET FUNC_NAME FUNC_URL REVIEWS_TABLE
 
-# Pacotes Python fora do $HOME (que tem só 1 GB): pip install --user grava em /tmp/pyuser
-export PYTHONUSERBASE=/tmp/pyuser
+# Pacotes Python num venv em /tmp, fora do $HOME (que tem só 1 GB). O Python do
+# CloudShell já roda num virtualenv e recusa "pip install --user".
+if [ ! -x /tmp/venv-qc/bin/python ]; then
+  python3 -m venv /tmp/venv-qc
+fi
+# shellcheck disable=SC1091
+source /tmp/venv-qc/bin/activate
 
 unset -f _qc_out
 unset _qc_dir

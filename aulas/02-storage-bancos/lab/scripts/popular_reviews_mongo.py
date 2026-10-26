@@ -13,8 +13,8 @@ Variáveis de ambiente:
                        Se ausente, é derivado do SECRET_ID (troca /postgres por /mongo).
 
 Dependências:
-    export PYTHONUSERBASE=/tmp/pyuser   # fora do $HOME, que tem só 1 GB
-    pip install --user --no-cache-dir boto3 pymongo
+    python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate   # fora do $HOME (1 GB)
+    pip install --no-cache-dir boto3 pymongo
 """
 
 import json

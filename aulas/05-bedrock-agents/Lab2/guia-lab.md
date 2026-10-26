@@ -94,7 +94,8 @@ O CloudShell não abre o Streamlit, mas roda a API, o agente e o gatilho de verd
 ```bash
 git clone https://github.com/IsaiasBritto/aie-cloud-aws.git
 cd aie-cloud-aws/aulas/05-bedrock-agents/Lab2
-pip install --user -r requirements.txt
+python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate
+pip install --no-cache-dir -r requirements.txt
 python -m pytest            # 25 passed
 nohup python -m uvicorn api.principal:aplicacao --port 8000 > api.log 2>&1 &
 export API_URL=http://localhost:8000

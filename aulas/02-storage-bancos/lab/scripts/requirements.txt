@@ -1,6 +1,6 @@
 # Instale fora do $HOME (1 GB no CloudShell):
-#   export PYTHONUSERBASE=/tmp/pyuser
-#   pip install --user --no-cache-dir -r requirements.txt
+#   python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate
+#   pip install --no-cache-dir -r requirements.txt
 
 # AWS SDK (no CloudShell o boto3 já vem instalado; autentica pela LabRole)
 boto3>=1.34

@@ -3,7 +3,7 @@
 # Recupera a sessão da Aula 2 no CloudShell:
 #   - exporta os outputs do Terraform que os scripts Python usam;
 #   - recupera a DB_PASSWORD do Secrets Manager (para apply/destroy);
-#   - aponta o pip para fora do $HOME (PYTHONUSERBASE=/tmp/pyuser);
+#   - cria (se preciso) e ativa o venv /tmp/venv-qc, fora do $HOME de 1 GB;
 #   - avisa se o IP do CloudShell mudou (RDS e Mongo só aceitam o IP antigo).
 #
 #   source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh
@@ -24,8 +24,13 @@ fi
 export PATH="$HOME/bin:$PATH"
 export TF_PLUGIN_CACHE_DIR="$HOME/.terraform.d/plugin-cache"
 
-# Pacotes Python fora do $HOME: pip install --user grava em /tmp/pyuser
-export PYTHONUSERBASE=/tmp/pyuser
+# Pacotes Python num venv em /tmp, fora do $HOME (que tem só 1 GB). O Python do
+# CloudShell já roda num virtualenv e recusa "pip install --user".
+if [ ! -x /tmp/venv-qc/bin/python ]; then
+  python3 -m venv /tmp/venv-qc
+fi
+# shellcheck disable=SC1091
+source /tmp/venv-qc/bin/activate
 
 _qc_out() { terraform -chdir="$_qc_dir" output -raw "$1" 2>/dev/null; }
 

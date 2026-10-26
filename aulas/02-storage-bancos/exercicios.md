@@ -30,7 +30,7 @@ Esta é a **2ª entrega de grupo** da disciplina. Os 3 níveis são **divisão d
 
 Use o [template em `entregas/template-entrega-grupo.md`](../../entregas/template-entrega-grupo.md) para o `entrega-grupo-aula02.md` dentro do ZIP.
 
-> **Política "no install":** Tudo roda no AWS CloudShell. `pip install --user` é OK no CloudShell — com `export PYTHONUSERBASE=/tmp/pyuser` antes, para não lotar o `$HOME` de 1 GB.
+> **Política "no install":** Tudo roda no AWS CloudShell. `pip install` é OK no CloudShell, dentro de um venv em `/tmp` (`python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate`), para não lotar o `$HOME` de 1 GB.
 
 ---
 

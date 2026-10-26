@@ -110,8 +110,9 @@ export SECRET_ID=$(terraform output -raw secret_id)
 export DYNAMO_TABLE=$(terraform output -raw dynamodb_table)
 export DB_HOST=$(terraform output -raw db_endpoint)
 
-# Pacotes Python fora do $HOME (que tem só 1 GB): pip install --user grava em /tmp/pyuser
-export PYTHONUSERBASE=/tmp/pyuser
+# Pacotes Python num venv em /tmp, fora do $HOME (que tem só 1 GB).
+# O Python do CloudShell já roda num virtualenv e recusa o "pip install --user".
+python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate
 
 # Exibe em tela
 echo "Bucket: $BUCKET_NAME"
@@ -128,7 +129,7 @@ O CloudShell encerra a sessão depois de ~20 min sem uso — e os blocos de teor
 source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh
 ```
 
-O [`exportar-outputs.sh`](exportar-outputs.sh) exporta os outputs, recupera a `DB_PASSWORD` do Secrets Manager, aponta o `PYTHONUSERBASE` para `/tmp/pyuser` e **avisa se o IP do CloudShell mudou** — nesse caso, ele mostra o `terraform apply` que libera o novo IP no RDS.
+O [`exportar-outputs.sh`](exportar-outputs.sh) exporta os outputs, recupera a `DB_PASSWORD` do Secrets Manager, ativa o venv de `/tmp/venv-qc` (e cria, se a sessão reiniciou) e **avisa se o IP do CloudShell mudou** — nesse caso, ele mostra o `terraform apply` que libera o novo IP no RDS.
 
 > Use `source`, não `bash`: com `bash`, as variáveis morrem junto com o processo. Os pacotes do `pip` ficam em `/tmp`, que é limpo quando a sessão reinicia: se der `ModuleNotFoundError`, rode o `pip install` da atividade de novo.
 
@@ -177,8 +178,8 @@ O [`popular_produtos.py`](scripts/popular_produtos.py): lê a connection string 
 
 ```bash
 # Perdeu a sessão? source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh
-export PYTHONUSERBASE=/tmp/pyuser
-pip install --user --no-cache-dir boto3 "psycopg[binary]"
+python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate
+pip install --no-cache-dir boto3 "psycopg[binary]"
 cd ~/aie-cloud/aulas/02-storage-bancos/lab/scripts
 python3 popular_produtos.py
 ```
@@ -215,8 +216,8 @@ O [`popular_reviews.py`](scripts/popular_reviews.py) insere 30 reviews com `batc
 
 ```bash
 # Perdeu a sessão? source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh
-export PYTHONUSERBASE=/tmp/pyuser
-pip install --user --no-cache-dir boto3
+python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate
+pip install --no-cache-dir boto3
 cd ~/aie-cloud/aulas/02-storage-bancos/lab/scripts
 python3 popular_reviews.py
 ```
@@ -234,8 +235,8 @@ O mesmo RDS da Atividade 2 vira um Vector DB com a extensão **pgvector**. O [`i
 
 ```bash
 # Perdeu a sessão? source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh
-export PYTHONUSERBASE=/tmp/pyuser
-pip install --user --no-cache-dir boto3 "psycopg[binary]" pgvector fastembed
+python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate
+pip install --no-cache-dir boto3 "psycopg[binary]" pgvector fastembed
 cd ~/aie-cloud/aulas/02-storage-bancos/lab/scripts
 python3 indexar_produtos.py
 ```
@@ -264,8 +265,8 @@ A EC2 só existe se o `apply` rodou com `export TF_VAR_criar_mongo=true` (ver Pr
 terraform -chdir="$HOME/aie-cloud/aulas/02-storage-bancos/lab/terraform" apply -auto-approve -var="db_password=$DB_PASSWORD"
 source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh   # exporta MONGO_IP e MONGO_SECRET_ID
 
-export PYTHONUSERBASE=/tmp/pyuser
-pip install --user --no-cache-dir boto3 pymongo
+python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate
+pip install --no-cache-dir boto3 pymongo
 cd ~/aie-cloud/aulas/02-storage-bancos/lab/scripts
 python3 popular_reviews_mongo.py
 ```
@@ -345,8 +346,9 @@ infrastructure/
 | `NoSuchKey` no script | O upload da Atividade 1 não aconteceu | Refaça o `aws s3 cp` e confira com `aws s3 ls` |
 | `ResourceNotFoundException` no Secrets Manager | `SECRET_ID` vazio ou de outro apply | `source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh` |
 | `extension "vector" is not available` | Versão do PostgreSQL sem pgvector | O lab usa PostgreSQL 16 (com pgvector). Confira `engine_version` em `rds.tf` |
-| `No space left on device` no CloudShell | `$HOME` de 1 GB cheio (providers, pip) | `export PYTHONUSERBASE=/tmp/pyuser` antes do `pip`; `rm -rf ~/.cache/pip ~/.local/lib`; confira com `du -sh ~/.local ~/.cache ~/.terraform.d` e use o `TF_PLUGIN_CACHE_DIR` |
-| `ModuleNotFoundError` no Python | `/tmp/pyuser` foi limpo (sessão reiniciou) ou faltou o `PYTHONUSERBASE` | `export PYTHONUSERBASE=/tmp/pyuser` e rode o `pip install` da atividade de novo |
+| `No space left on device` no CloudShell | `$HOME` de 1 GB cheio (providers, pip) | instale os pacotes no venv de `/tmp/venv-qc`, nunca no `$HOME`; `rm -rf ~/.cache/pip ~/.local/lib`; confira com `du -sh ~/.local ~/.cache ~/.terraform.d` e use o `TF_PLUGIN_CACHE_DIR` |
+| `ModuleNotFoundError` no Python | O venv de `/tmp` não está ativo ou foi apagado (a sessão reiniciou) | `python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate` e rode o `pip install` da atividade de novo |
+| `Can not perform a '--user' install` no `pip` | O Python do CloudShell já roda num virtualenv | Use o venv: `python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate` e `pip install` **sem** `--user` |
 | Script do Mongo: `MONGO_IP vazio` | O MongoDB é opcional e não foi criado | É demo do professor: `export TF_VAR_criar_mongo=true` e `apply` |
 | MongoDB: `ServerSelectionTimeoutError` | EC2 ainda subindo os containers | Aguarde 2 min e rode de novo. Log: EC2 → Actions → Monitor → Get system log |
 | Mongo Express pede senha | Basic auth ligado de propósito | Usuário `qcadmin`, senha `QCview2024!` |

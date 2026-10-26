@@ -13,12 +13,12 @@ Scripts que populam e exploram as bases provisionadas pelo Terraform da Aula 2. 
 
 ```bash
 # Fora do $HOME do CloudShell, que tem só 1 GB (o fastembed e o onnxruntime somam centenas de MB)
-export PYTHONUSERBASE=/tmp/pyuser
-pip install --user --no-cache-dir -r requirements.txt
+python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate
+pip install --no-cache-dir -r requirements.txt
 # ou só o que cada atividade pede (ver guia)
 ```
 
-> `/tmp` é limpo quando a sessão reinicia. Se aparecer `ModuleNotFoundError`, exporte o `PYTHONUSERBASE` e rode o `pip install` de novo.
+> `/tmp` é limpo quando a sessão reinicia. Se aparecer `ModuleNotFoundError`, recrie e ative o venv (`python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate`) e rode o `pip install` de novo.
 
 ## Variáveis de ambiente
 
@@ -29,7 +29,7 @@ pip install --user --no-cache-dir -r requirements.txt
 | `indexar_produtos.py` | `SECRET_ID` (ou `DB_HOST` + `DB_PASSWORD`), `BUCKET_NAME` |
 | `popular_reviews_mongo.py` | `MONGO_IP`, `MONGO_SECRET_ID` (ou `SECRET_ID`) |
 
-Todas de uma vez, a partir dos outputs do Terraform (inclui `PYTHONUSERBASE` e a `DB_PASSWORD`):
+Todas de uma vez, a partir dos outputs do Terraform (também ativa o venv de `/tmp/venv-qc` e recupera a `DB_PASSWORD`):
 
 ```bash
 source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh

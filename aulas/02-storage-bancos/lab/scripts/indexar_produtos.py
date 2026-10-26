@@ -18,8 +18,8 @@ Variáveis de ambiente:
     (alternativa ao SECRET_ID: DB_HOST + DB_PASSWORD)
 
 Dependências:
-    export PYTHONUSERBASE=/tmp/pyuser   # fora do $HOME, que tem só 1 GB
-    pip install --user --no-cache-dir boto3 "psycopg[binary]" pgvector fastembed
+    python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate   # fora do $HOME (1 GB)
+    pip install --no-cache-dir boto3 "psycopg[binary]" pgvector fastembed
 """
 
 import csv

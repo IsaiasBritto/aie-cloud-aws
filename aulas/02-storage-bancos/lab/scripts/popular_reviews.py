@@ -10,8 +10,8 @@ Variáveis de ambiente:
     DYNAMO_TABLE — nome da tabela (terraform output -raw dynamodb_table)
 
 Dependências:
-    export PYTHONUSERBASE=/tmp/pyuser   # fora do $HOME, que tem só 1 GB
-    pip install --user --no-cache-dir boto3
+    python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate   # fora do $HOME (1 GB)
+    pip install --no-cache-dir boto3
 """
 
 import os

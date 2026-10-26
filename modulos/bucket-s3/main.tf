@@ -48,7 +48,7 @@ resource "terraform_data" "bucket" {
     }
     command = <<-EOT
       set -euo pipefail
-      if aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
+      if aws s3api head-bucket --bucket "$BUCKET" >/dev/null 2>&1; then
         echo "Bucket $BUCKET já existe na conta: reaproveitando."
       elif [ "$REGIAO" = "us-east-1" ]; then
         aws s3api create-bucket --bucket "$BUCKET" --region "$REGIAO" >/dev/null
@@ -74,7 +74,7 @@ resource "terraform_data" "bucket" {
     }
     command = <<-EOT
       set -uo pipefail
-      if ! aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
+      if ! aws s3api head-bucket --bucket "$BUCKET" >/dev/null 2>&1; then
         echo "Bucket $BUCKET não existe mais: nada a apagar."
         exit 0
       fi
