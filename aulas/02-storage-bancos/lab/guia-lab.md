@@ -305,7 +305,7 @@ cd ~/aie-cloud/aulas/02-storage-bancos/lab/terraform
 terraform destroy -auto-approve -var="db_password=$DB_PASSWORD"
 ```
 
-O destroy apaga bucket (mesmo com objetos — `force_destroy`), RDS (sem snapshot final), segredos (sem janela de recuperação), tabela DynamoDB e, se foi criada, a EC2 do Mongo. Leva ~5 min por causa do RDS.
+O destroy apaga bucket (mesmo com objetos: o módulo `modulos/bucket-s3` esvazia antes de apagar), RDS (sem snapshot final), segredos (sem janela de recuperação), tabela DynamoDB e, se foi criada, a EC2 do Mongo. Leva ~5 min por causa do RDS.
 
 **Conferir:**
 - **Resource Groups & Tag Editor → Tag Editor** → região `us-east-1`, tipo *All supported resource types*, tag `aula = 2` → a busca deve voltar **vazia**

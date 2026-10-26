@@ -27,6 +27,7 @@ jobs:
           - aulas/04-servicos-cognitivos/lab/terraform
           - aulas/05-bedrock-agents/03-agente-Eva-aws/infra/terraform
           - aulas/05-bedrock-agents/Lab/infra/terraform
+          - aulas/05-bedrock-agents/Lab2/infra/terraform
           - aulas/05-mlops/lab/terraform
     steps:
       - uses: actions/checkout@v4

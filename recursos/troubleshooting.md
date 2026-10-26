@@ -24,6 +24,27 @@ O Learner Lab não permite criar roles. Use a **`LabRole`** (Lambda, ECS, SageMa
 e o **`LabInstanceProfile`** (EC2). Os Terraforms da disciplina já fazem isso com
 `data "aws_iam_role" "lab"`.
 
+### `AccessDenied` em `GetBucketObjectLockConfiguration` ao criar bucket
+
+```
+Error: reading S3 Bucket (qc-aula02-xxxxxx) object lock configuration: ... AccessDenied
+... with an explicit deny in a service control policy
+```
+
+O Learner Lab bloqueia essa leitura, e o recurso `aws_s3_bucket` do Terraform faz
+essa leitura sempre. Por isso os labs criam o bucket com o módulo `modulos/bucket-s3`,
+que usa a AWS CLI. Se você rodou o `apply` antes dessa correção, o bucket ficou criado
+e "pela metade" no state. Para seguir:
+
+```bash
+git -C ~/aie-cloud stash && git -C ~/aie-cloud pull
+terraform init -upgrade                        # registra o módulo novo
+terraform state rm aws_s3_bucket.qc            # troque "qc" pelo nome do bucket do erro no seu lab
+terraform apply -auto-approve -var="db_password=$DB_PASSWORD"   # use as -var do seu lab
+```
+
+O módulo encontra o bucket que já existe e reaproveita; nada é recriado.
+
 ### "Serviço não disponível" (Bedrock, Cost Explorer, Budgets)
 
 Não é você: o Learner Lab não libera esses serviços. As aulas que os usam têm um

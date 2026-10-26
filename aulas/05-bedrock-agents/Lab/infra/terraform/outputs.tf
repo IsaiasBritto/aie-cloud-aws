@@ -1,6 +1,6 @@
 output "bucket" {
   description = "Use em ARMAZENAMENTO_BUCKET no .env para rodar local"
-  value       = aws_s3_bucket.deteccoes.bucket
+  value       = module.bucket_deteccoes.nome
 }
 
 output "ecr_api" {

@@ -37,6 +37,6 @@ terraform destroy -auto-approve -var="db_password=$DB_PASSWORD"
 
 - **Acesso só do seu IP:** `data "http"` descobre o IP de saída do CloudShell e libera só ele no RDS (5432) e no MongoDB (27017). Se abrir um CloudShell novo e o IP mudar, rode `apply` de novo.
 - **Sem segredo no código:** os scripts leem a connection string do Secrets Manager com a credencial da LabRole. `recovery_window_in_days = 0` deixa recriar o mesmo nome logo depois de um destroy.
-- **Custo de lab:** RDS sem backup automático nem snapshot final, DynamoDB on-demand, bucket com `force_destroy`. O RDS é o item mais caro — não esqueça o destroy.
+- **Custo de lab:** RDS sem backup automático nem snapshot final, DynamoDB on-demand, bucket esvaziado e apagado no destroy (`modulos/bucket-s3`). O RDS é o item mais caro — não esqueça o destroy.
 - **Learner Lab:** nada de IAM role nova; nada de região fora de `us-east-1`/`us-west-2`.
 - **Imagens do Mongo:** `public.ecr.aws/docker/library/*` é o espelho oficial das imagens do Docker Hub, sem limite de pull anônimo.

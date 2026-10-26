@@ -2,7 +2,7 @@
 
 output "bucket_name" {
   description = "Bucket S3 da QC (prefixos catalogo/, imagens/, logs/)"
-  value       = aws_s3_bucket.qc.bucket
+  value       = module.bucket_qc.nome
 }
 
 output "secret_id" {

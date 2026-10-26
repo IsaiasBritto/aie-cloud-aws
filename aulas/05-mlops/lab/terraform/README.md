@@ -4,7 +4,7 @@ Cria só o que é nosso; o SageMaker já existe na região.
 
 | Recurso | Para quê |
 |---|---|
-| `aws_s3_bucket.ml` (+ versionamento, bloqueio público) | dados, código do treino e artefatos dos modelos |
+| `module.bucket_ml` (bucket criado pela CLI, ver `modulos/bucket-s3`) + versionamento e bloqueio público | dados, código do treino e artefatos dos modelos |
 | `aws_s3_object.produtos` | o `produtos.csv` da Aula 2, em `dados/produtos/` |
 | `aws_sagemaker_model_package_group.recomendador` | o Model Registry do recomendador |
 | `data.aws_iam_role.lab` | a LabRole — role de execução do treino e do endpoint |

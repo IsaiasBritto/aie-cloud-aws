@@ -2,7 +2,7 @@
 
 output "data_bucket_name" {
   description = "Bucket de dados (prefixos audios/ e imagens/)"
-  value       = aws_s3_bucket.data.bucket
+  value       = module.bucket_data.nome
 }
 
 output "lambda_name" {

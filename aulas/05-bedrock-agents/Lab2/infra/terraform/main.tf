@@ -58,13 +58,17 @@ data "aws_iam_role" "lab" {
 }
 
 # ---------- bucket: entrada/ dispara; memoria/ e saida/ não ----------
-resource "aws_s3_bucket" "notas" {
-  bucket        = local.nome
-  force_destroy = true # o 99-remover-tudo.sh apaga mesmo com objetos dentro
+# Criado pela AWS CLI dentro do módulo: o SCP do Learner Lab nega
+# s3:GetBucketObjectLockConfiguration, que o aws_s3_bucket lê a cada refresh.
+# Detalhes em modulos/bucket-s3/main.tf (o destroy também esvazia o bucket).
+module "bucket_notas" {
+  source = "../../../../../modulos/bucket-s3"
+  nome   = local.nome
+  regiao = var.region
 }
 
 resource "aws_s3_bucket_public_access_block" "notas" {
-  bucket                  = aws_s3_bucket.notas.id
+  bucket                  = module.bucket_notas.nome
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
@@ -73,7 +77,7 @@ resource "aws_s3_bucket_public_access_block" "notas" {
 
 # Liga o envio de TODOS os eventos do bucket para o EventBridge; quem filtra é a regra.
 resource "aws_s3_bucket_notification" "notas" {
-  bucket      = aws_s3_bucket.notas.id
+  bucket      = module.bucket_notas.nome
   eventbridge = true
 }
 
@@ -122,7 +126,7 @@ resource "aws_cloudwatch_event_rule" "entrada" {
     source        = ["aws.s3"]
     "detail-type" = ["Object Created"]
     detail = {
-      bucket = { name = [aws_s3_bucket.notas.id] }
+      bucket = { name = [module.bucket_notas.nome] }
       object = { key = [{ prefix = "entrada/" }] }
     }
   })

@@ -78,7 +78,7 @@ resource "aws_ecs_task_definition" "produtos_api" {
     essential    = true
     portMappings = [{ containerPort = 8080, protocol = "tcp" }]
     environment = [
-      { name = "BUCKET_NAME", value = aws_s3_bucket.catalogo.bucket },
+      { name = "BUCKET_NAME", value = module.bucket_catalogo.nome },
       { name = "CSV_KEY", value = aws_s3_object.produtos.key },
     ]
     logConfiguration = {

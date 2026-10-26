@@ -55,13 +55,17 @@ data "aws_iam_role" "lab" {
   name = "LabRole"
 }
 
-resource "aws_s3_bucket" "ml" {
-  bucket        = "${local.nome}-ml"
-  force_destroy = true
+# Criado pela AWS CLI dentro do módulo: o SCP do Learner Lab nega
+# s3:GetBucketObjectLockConfiguration, que o aws_s3_bucket lê a cada refresh.
+# Detalhes em modulos/bucket-s3/main.tf (o destroy também esvazia o bucket).
+module "bucket_ml" {
+  source = "../../../../modulos/bucket-s3"
+  nome   = "${local.nome}-ml"
+  regiao = var.region
 }
 
 resource "aws_s3_bucket_public_access_block" "ml" {
-  bucket                  = aws_s3_bucket.ml.id
+  bucket                  = module.bucket_ml.nome
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
@@ -71,14 +75,14 @@ resource "aws_s3_bucket_public_access_block" "ml" {
 # Versionamento = o "Data Asset versionado" da versão Azure. Cada upload do
 # produtos.csv vira uma versão nova, com ID — e o job registra qual usou.
 resource "aws_s3_bucket_versioning" "ml" {
-  bucket = aws_s3_bucket.ml.id
+  bucket = module.bucket_ml.nome
   versioning_configuration {
     status = "Enabled"
   }
 }
 
 resource "aws_s3_object" "produtos" {
-  bucket = aws_s3_bucket.ml.id
+  bucket = module.bucket_ml.nome
   key    = "dados/produtos/produtos.csv"
   source = "${path.module}/../../../02-storage-bancos/lab/data/produtos.csv"
   etag   = filemd5("${path.module}/../../../02-storage-bancos/lab/data/produtos.csv")

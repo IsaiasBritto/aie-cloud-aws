@@ -1,11 +1,11 @@
 output "bucket" {
   description = "Bucket com dados, código e modelos"
-  value       = aws_s3_bucket.ml.bucket
+  value       = module.bucket_ml.nome
 }
 
 output "dados_s3_uri" {
   description = "Prefixo do canal de treino (o job monta tudo que está aqui)"
-  value       = "s3://${aws_s3_bucket.ml.bucket}/dados/produtos/"
+  value       = "s3://${module.bucket_ml.nome}/dados/produtos/"
 }
 
 output "dados_versao" {

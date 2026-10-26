@@ -34,7 +34,7 @@ resource "aws_lambda_function" "cognitivo" {
 
   environment {
     variables = {
-      DATA_BUCKET             = aws_s3_bucket.data.bucket
+      DATA_BUCKET             = module.bucket_data.nome
       REVIEWS_TABLE           = aws_dynamodb_table.reviews.name
       POWERTOOLS_SERVICE_NAME = "qc-cognitivo"
     }

@@ -62,7 +62,7 @@ sorteio evita a colisão entre colegas.
 
 | Recurso Terraform | O que é |
 |---|---|
-| `aws_s3_bucket.deteccoes` + bloqueio público + criptografia + **ciclo de vida** | onde ficam resultado e imagem (com consentimento). Expira em `retencao_dias` (7) |
+| `module.bucket_deteccoes` (bucket criado pela CLI, ver `modulos/bucket-s3`) + bloqueio público + criptografia + **ciclo de vida** | onde ficam resultado e imagem (com consentimento). Expira em `retencao_dias` (7) |
 | `aws_ecr_repository.app["api"]` / `["web"]` | os dois registros, com *scan on push* e lifecycle de 5 imagens |
 | `aws_ecs_cluster.deva3` | o cluster (vazio até o passo 3) |
 | `aws_cloudwatch_log_group.deva3` | logs dos dois containers, 7 dias |

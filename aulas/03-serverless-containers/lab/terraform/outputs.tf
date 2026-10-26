@@ -1,6 +1,6 @@
 output "bucket_name" {
   description = "Bucket do catálogo (já com catalogo/produtos.csv)"
-  value       = aws_s3_bucket.catalogo.bucket
+  value       = module.bucket_catalogo.nome
 }
 
 output "lambda_name" {

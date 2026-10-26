@@ -99,7 +99,7 @@ resource "aws_ecs_task_definition" "deva3" {
       environment = [
         { name = "AMBIENTE", value = "aws-ecs" },
         { name = "AWS_REGION", value = var.region },
-        { name = "ARMAZENAMENTO_BUCKET", value = aws_s3_bucket.deteccoes.bucket },
+        { name = "ARMAZENAMENTO_BUCKET", value = module.bucket_deteccoes.nome },
         { name = "ARMAZENAMENTO_PREFIXO", value = "deteccoes" },
         { name = "PERSISTIR_IMAGENS", value = "true" },
         { name = "LIMIAR_CONFIANCA", value = var.limiar_confianca },

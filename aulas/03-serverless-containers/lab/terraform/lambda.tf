@@ -24,7 +24,7 @@ resource "aws_lambda_function" "catalogo" {
 
   environment {
     variables = {
-      BUCKET_NAME = aws_s3_bucket.catalogo.bucket
+      BUCKET_NAME = module.bucket_catalogo.nome
       CSV_KEY     = aws_s3_object.produtos.key
     }
   }

@@ -155,4 +155,4 @@ Depois, repita a busca do **Tag Editor** (B.0): ela tem que voltar vazia.
 | `InvalidImageFormatException` na CLI | A.2 | idem — o Rekognition só lê JPEG e PNG |
 | tarefa em `PENDING` → `STOPPED` | B.3 | abra a tarefa parada → *Stopped reason* |
 | `web` nunca sobe | B.3 | a `api` não ficou HEALTHY — logs do container `api` |
-| bucket não apaga no console | B.1 | tem objetos; use o script (o Terraform tem `force_destroy`) |
+| bucket não apaga no console | B.1 | tem objetos; use o script (o destroy do Terraform esvazia o bucket antes de apagar) |
