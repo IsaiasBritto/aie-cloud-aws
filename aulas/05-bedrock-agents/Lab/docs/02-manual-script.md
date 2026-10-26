@@ -134,6 +134,7 @@ make api      # http://localhost:8000/docs
 
 | Sintoma | Causa provável | O que fazer |
 |---|---|---|
+| `AccessDenied ... GetBucketObjectLockConfiguration` no `terraform apply` | O Learner Lab bloqueia essa leitura, que o `aws_s3_bucket` faz sempre. Os labs agora criam o bucket pelo módulo `modulos/bucket-s3` (AWS CLI) | `git -C ~/aie-cloud pull`, `terraform init`, `terraform state rm aws_s3_bucket.deteccoes` e `terraform apply` de novo. O módulo reaproveita o bucket que já foi criado |
 | `Error: reading IAM Role (LabRole)` | não está no Learner Lab | `-var role_name=<sua role>` (com Rekognition, S3 e ECS) |
 | `no space left on device` no build | CloudShell com imagens antigas | `docker system prune -af` |
 | `services-stable` não termina | a tarefa cai em loop | o script mostra o `stoppedReason`; veja também `aws logs tail /ecs/deva3-<sufixo> --since 10m` |

@@ -95,7 +95,7 @@ Enquanto o Terraform trabalha (~8 min), leia os arquivos:
 | [main.tf](terraform/main.tf) | Providers, sufixo aleatório, tags padrão, VPC padrão e o IP do CloudShell |
 | [variables.tf](terraform/variables.tf) | `region`, `db_password` e as senhas do MongoDB |
 | [outputs.tf](terraform/outputs.tf) | Nomes e endpoints consumidos pelos scripts Python |
-| [storage.tf](terraform/storage.tf) | Bucket S3 + 3 prefixos (`catalogo/`, `imagens/`, `logs/`) + lifecycle |
+| [storage.tf](terraform/storage.tf) | Bucket S3 (pelo módulo [`modulos/bucket-s3`](../../../modulos/bucket-s3/main.tf), que usa a AWS CLI por causa de uma restrição do Learner Lab) + 3 prefixos (`catalogo/`, `imagens/`, `logs/`) + lifecycle |
 | [rds.tf](terraform/rds.tf) | RDS PostgreSQL 16 `db.t3.micro` + security group (só o seu IP) |
 | [secrets.tf](terraform/secrets.tf) | Secrets Manager: connection string do PostgreSQL e credenciais do Mongo |
 | [dynamodb.tf](terraform/dynamodb.tf) | Tabela DynamoDB on-demand (`produto_id` + `review_id`) |
@@ -337,6 +337,7 @@ infrastructure/
 
 | Problema | Causa | Solução |
 |----------|-------|---------|
+| `AccessDenied ... GetBucketObjectLockConfiguration` no `terraform apply` | O Learner Lab bloqueia essa leitura, que o `aws_s3_bucket` faz sempre. Os labs agora criam o bucket pelo módulo `modulos/bucket-s3` (AWS CLI) | `git -C ~/aie-cloud pull`, `terraform init`, `terraform state rm aws_s3_bucket.qc` e `terraform apply` de novo. O módulo reaproveita o bucket que já foi criado |
 | `ExpiredToken` / `InvalidClientTokenId` | Sessão do Learner Lab acabou | **Start Lab** de novo e abra um CloudShell novo |
 | `InvalidParameterValue: The parameter MasterUserPassword...` | Senha com `/ @ "` ou espaço | `export DB_PASSWORD=$(openssl rand -hex 16)` |
 | Python: `connection timeout` no RDS ou no Mongo | IP do CloudShell mudou | `source ../exportar-outputs.sh` (na pasta `scripts`) mostra o `apply` que libera o novo IP |

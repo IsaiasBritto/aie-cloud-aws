@@ -69,7 +69,7 @@ Enquanto o Terraform trabalha (~1 a 2 min), leia os arquivos:
 | [main.tf](terraform/main.tf) | Providers, tags, locals, data source da LabRole |
 | [variables.tf](terraform/variables.tf) | `region` (padrão `us-east-1`) |
 | [outputs.tf](terraform/outputs.tf) | Todos os outputs consumidos pelo guia e pelos scripts |
-| [storage.tf](terraform/storage.tf) | Bucket de dados + prefixos `audios/` e `imagens/` |
+| [storage.tf](terraform/storage.tf) | Bucket de dados (módulo [`modulos/bucket-s3`](../../../modulos/bucket-s3/main.tf)) + prefixos `audios/` e `imagens/` |
 | [lambda.tf](terraform/lambda.tf) | Lambda Python 3.12 + Function URL + LabRole (timeout 60 s) |
 | (nenhum) | Nada a criar: Transcribe, Polly, Comprehend e Rekognition são APIs da conta |
 | [dynamodb.tf](terraform/dynamodb.tf) | Tabela on-demand `reviews` (partição `produto`, ordenação `id`) |
@@ -259,6 +259,7 @@ Somadas à tool de catálogo da Aula 3 (`GET /produtos`, em outra Lambda), são 
 
 | Problema | Causa | Solução |
 |----------|-------|---------|
+| `AccessDenied ... GetBucketObjectLockConfiguration` no `terraform apply` | O Learner Lab bloqueia essa leitura, que o `aws_s3_bucket` faz sempre. Os labs agora criam o bucket pelo módulo `modulos/bucket-s3` (AWS CLI) | `git -C ~/aie-cloud pull`, `terraform init`, `terraform state rm aws_s3_bucket.data` e `terraform apply` de novo. O módulo reaproveita o bucket que já foi criado |
 | `{"status": "placeholder"}` em qualquer rota | O código real ainda não foi publicado | Passo 3 da Atividade 2 |
 | `Runtime.ImportModuleError: No module named 'aws_lambda_powertools'` | O zip foi feito sem as dependências | Refaça o Passo 3 (pasta `pacote/` com `pip install -t` e os flags de plataforma) |
 | `403 Forbidden` na Function URL | Falta uma das duas permissões da URL pública | `terraform apply` de novo; `aws lambda get-policy --function-name "$FUNC_NAME"` |

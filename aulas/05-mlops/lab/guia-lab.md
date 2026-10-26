@@ -319,6 +319,7 @@ dedicada, ~US$ 84/mês. Decisão de produto a justificar na entrega final — é
 
 | Problema | Causa | Solução |
 |----------|-------|---------|
+| `AccessDenied ... GetBucketObjectLockConfiguration` no `terraform apply` | O Learner Lab bloqueia essa leitura, que o `aws_s3_bucket` faz sempre. Os labs agora criam o bucket pelo módulo `modulos/bucket-s3` (AWS CLI) | `git -C ~/aie-cloud pull`, `terraform init`, `terraform state rm aws_s3_bucket.ml` e `terraform apply` de novo. O módulo reaproveita o bucket que já foi criado |
 | `AccessDenied ... CreateTrainingJob` | sessão do Learner Lab encerrada | religue o Lab e rode de novo |
 | `ResourceLimitExceeded` | tipo de instância fora da cota do Learner Lab | `--instancia ml.m5.large` (treino) ou `--tipo serverless` (endpoint) |
 | job `Failed`: `No such file ... produtos.csv` | canal apontando para prefixo vazio | `terraform apply` subiu o CSV? `aws s3 ls s3://$BUCKET/dados/produtos/` |

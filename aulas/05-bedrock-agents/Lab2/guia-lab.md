@@ -153,6 +153,7 @@ make limpar
 
 | Sintoma | Causa provável | O que fazer |
 |---|---|---|
+| `AccessDenied ... GetBucketObjectLockConfiguration` no `terraform apply` | O Learner Lab bloqueia essa leitura, que o `aws_s3_bucket` faz sempre. Os labs agora criam o bucket pelo módulo `modulos/bucket-s3` (AWS CLI) | `git -C ~/aie-cloud pull`, `terraform init`, `terraform state rm aws_s3_bucket.notas` e `terraform apply` de novo. O módulo reaproveita o bucket que já foi criado |
 | `make: command not found` (Windows) | Sem make | Rode o comando que está ao lado do alvo no `Makefile`. |
 | Streamlit: "API fora do ar" | Terminal 1 parado | Suba `make api` de novo. |
 | Volta 1 sai `duplicado` | Fila de uma rodada anterior | Apague a pasta `dados/` e rode `make semear` de novo. |

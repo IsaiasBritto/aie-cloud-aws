@@ -82,7 +82,7 @@ Enquanto o Terraform trabalha (~2 a 4 min), leia os arquivos:
 | [main.tf](terraform/main.tf) | Providers, sufixo aleatório, tags padrão, locals, LabRole |
 | [variables.tf](terraform/variables.tf) | `region` e `ecs_enabled` (para criar o ECS depois) |
 | [outputs.tf](terraform/outputs.tf) | Nomes e endpoints consumidos pelos comandos |
-| [storage.tf](terraform/storage.tf) | Bucket S3 (prefixo `catalogo/`) + upload do `produtos.csv` |
+| [storage.tf](terraform/storage.tf) | Bucket S3 pelo módulo [`modulos/bucket-s3`](../../../modulos/bucket-s3/main.tf) (prefixo `catalogo/`) + upload do `produtos.csv` |
 | [lambda.tf](terraform/lambda.tf) | Lambda Python 3.12 + Function URL + LabRole como execution role |
 | [containers.tf](terraform/containers.tf) | ECR + cluster ECS + tarefa Fargate (count condicional) |
 
@@ -293,6 +293,7 @@ Duas implementações: a Lambda, que vai para produção, e o container no ECR, 
 
 | Problema | Causa | Solução |
 |----------|-------|---------|
+| `AccessDenied ... GetBucketObjectLockConfiguration` no `terraform apply` | O Learner Lab bloqueia essa leitura, que o `aws_s3_bucket` faz sempre. Os labs agora criam o bucket pelo módulo `modulos/bucket-s3` (AWS CLI) | `git -C ~/aie-cloud pull`, `terraform init`, `terraform state rm aws_s3_bucket.catalogo` e `terraform apply` de novo. O módulo reaproveita o bucket que já foi criado |
 | `curl` na Function URL → `403 Forbidden` | Falta uma das duas permissões da URL pública | `terraform apply` de novo; confira com `aws lambda get-policy --function-name "$FUNC_NAME"` (precisa de `InvokeFunctionUrl` **e** `InvokeFunction`) |
 | `ResourceConflictException` no `update-function-code` | Deploy anterior ainda em andamento | `aws lambda wait function-updated --function-name "$FUNC_NAME"` e repita |
 | `/produtos` → 500 "falha ao acessar o S3" | `BUCKET_NAME` errado ou CSV fora de `catalogo/` | Ver Plano B da Atividade 2 |
