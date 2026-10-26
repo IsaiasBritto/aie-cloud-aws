@@ -186,11 +186,21 @@ Saída esperada: `✓ 20 produtos inseridos` e o top 3 mais caros.
 
 ### Passo 3 — Consultar pelo psql (opcional)
 
+Em dois blocos: cole o primeiro, **espere terminar** e só então cole o segundo.
+
 ```bash
-sudo dnf install -y postgresql16 >/dev/null 2>&1 || sudo dnf install -y postgresql15
+# 1. Instala o cliente psql (só se ainda não estiver instalado)
+command -v psql >/dev/null || sudo dnf install -y postgresql16 < /dev/null
+psql --version
+```
+
+```bash
+# 2. Consulta: a connection string vem do Secrets Manager, sem aparecer na tela
 psql "$(aws secretsmanager get-secret-value --secret-id "$SECRET_ID" --query SecretString --output text)" \
   -c "SELECT categoria, COUNT(*), ROUND(AVG(preco),2) FROM t_produtos GROUP BY categoria;"
 ```
+
+> **Por que separado?** Colando tudo de uma vez, o `dnf` lê o terminal enquanto instala e "engole" a linha do `psql`, que some sem erro nenhum. O `< /dev/null` evita isso, mas o bloco separado é o jeito garantido. Se `psql --version` der `command not found`, a instalação falhou: a mensagem de erro do `dnf` aparece logo acima.
 
 **✅ Checkpoint L₂:** você inseriu 20 produtos no RDS **lendo o segredo do Secrets Manager**?
 
@@ -317,6 +327,7 @@ infrastructure/
 | `AccessDenied` ao criar recurso | Serviço/tipo fora do que o Learner Lab libera | Confira `bash ../check_regions.sh`; use `us-east-1` |
 | `NoSuchKey` no script | O upload da Atividade 1 não aconteceu | Refaça o `aws s3 cp` e confira com `aws s3 ls` |
 | `ResourceNotFoundException` no Secrets Manager | `SECRET_ID` vazio ou de outro apply | `source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh` |
+| `psql` colado junto com o `dnf install` não mostra nada | O `dnf` consumiu a linha do `psql` colada logo depois | Rode a consulta `psql ...` de novo, sozinha (Atividade 2, Passo 3) |
 | `extension "vector" is not available` | Versão do PostgreSQL sem pgvector | O lab usa PostgreSQL 16 (com pgvector). Confira `engine_version` em `rds.tf` |
 | `No space left on device` no CloudShell | `$HOME` de 1 GB cheio (providers, pip) | instale os pacotes no venv de `/tmp/venv-qc`, nunca no `$HOME`; `rm -rf ~/.cache/pip ~/.local/lib`; confira com `du -sh ~/.local ~/.cache ~/.terraform.d` e use o `TF_PLUGIN_CACHE_DIR` |
 | `ModuleNotFoundError` no Python | O venv de `/tmp` não está ativo ou foi apagado (a sessão reiniciou) | `python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate` e rode o `pip install` da atividade de novo |
