@@ -14,35 +14,3 @@ variable "db_password" {
     error_message = "A senha precisa ter 8+ caracteres e não pode conter / @ \" ou espaço."
   }
 }
-
-variable "criar_mongo" {
-  description = "Cria a EC2 com MongoDB + Mongo Express (Lab 3C, demo do professor). Padrão: não cria"
-  type        = bool
-  default     = false
-}
-
-variable "mongo_password" {
-  description = "Senha do admin do MongoDB (lab). Fica no Secrets Manager; o Terraform só a injeta na EC2"
-  type        = string
-  sensitive   = true
-  default     = "QCadmin2024!"
-}
-
-variable "mongo_instance_type" {
-  description = "Tipo da EC2 do MongoDB (MongoDB 7 pede ~1 GB livre de RAM)"
-  type        = string
-  default     = "t3.small"
-}
-
-variable "mongo_ui_cidr" {
-  description = "Origem liberada para o Mongo Express (porta 8081). Para restringir ao seu navegador: \"<seu-ip>/32\""
-  type        = string
-  default     = "0.0.0.0/0"
-}
-
-variable "mongo_ui_password" {
-  description = "Senha do Mongo Express (usuário qcadmin)"
-  type        = string
-  sensitive   = true
-  default     = "QCview2024!"
-}

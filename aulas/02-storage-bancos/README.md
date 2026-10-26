@@ -9,7 +9,7 @@ Ao final desta aula, você será capaz de:
 - Diferenciar bancos de dados relacionais (SQL) e NoSQL (documentos), entendendo quando usar cada um.
 - Provisionar um **Amazon RDS for PostgreSQL** via Terraform e popular tabelas via Python.
 - Aplicar **AWS Secrets Manager** para eliminar segredos hardcoded (connection strings, senhas).
-- Provisionar uma tabela **Amazon DynamoDB on-demand** e popular via Python (MongoDB numa EC2 fica como demo: gerenciado × autogerenciado).
+- Provisionar uma tabela **Amazon DynamoDB on-demand** e popular via Python.
 - Fazer **busca vetorial com pgvector** no RDS — base para o RAG dos agentes da QC.
 - Reconhecer quando se usa um banco analítico (Athena/Redshift) — sem aprofundar no lab.
 - Integrar os componentes provisionados à arquitetura cloud da Quantum Commerce.
@@ -45,7 +45,7 @@ A camada de dados desta aula é consumida pelas funções da **Aula 3**, pelos s
 | [lab/guia-lab.md](lab/guia-lab.md) | Durante a aula — abertura (fechar a Aula 1) + 4 atividades intercaladas |
 | [lab/exportar-outputs.sh](lab/exportar-outputs.sh) | Sempre que o CloudShell reiniciar: `source` recupera variáveis, senha do RDS e avisa se o IP mudou |
 | [lab/terraform/](lab/terraform/) | Código IaC pronto (8 arquivos `.tf`) |
-| [lab/scripts/](lab/scripts/) | Scripts Python (popular RDS, popular DynamoDB/Mongo, indexar com pgvector) |
+| [lab/scripts/](lab/scripts/) | Scripts Python (popular RDS, popular DynamoDB, indexar com pgvector) |
 | [lab/data/produtos.csv](lab/data/produtos.csv) | 20 produtos de exemplo da QC |
 | [exercicios.md](exercicios.md) | Após a aula — exercícios em 3 níveis (🟢/🟡/🔴) que compõem a entrega de grupo |
 

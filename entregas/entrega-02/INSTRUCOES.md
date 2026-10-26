@@ -12,7 +12,7 @@
 |------|--------------|----------------|
 | Cabeçalho do grupo + distribuição do trabalho | ✅ Sim | 1 pt (Critério 4) |
 | 🟢 N1 — Exercícios 1.1, 1.2, 1.3, 1.4 (storage, tiers, relacional vs NoSQL, Secrets Manager e IAM) | ✅ Sim | 3 pts (Critério 1) |
-| 🟡 N2 — Exercícios 2.1 (matriz de dados QC + diagrama), 2.2 (plano de migração), 2.3 (particionamento no DynamoDB ou no MongoDB) | ✅ Sim | 3 pts (Critério 2) + 2 pts qualidade técnica (Critério 3) |
+| 🟡 N2 — Exercícios 2.1 (matriz de dados QC + diagrama), 2.2 (plano de migração), 2.3 (particionamento no DynamoDB) | ✅ Sim | 3 pts (Critério 2) + 2 pts qualidade técnica (Critério 3) |
 | 🔴 N3 — Exercícios 3.1 (busca híbrida: vetor + full-text), 3.2 (OLAP: proposta com Athena), 3.3 (benchmark) | 🎁 Bônus | até +2 pts extras |
 | Reflexão coletiva ao final | ✅ Sim | 1 pt (Critério 5) |
 | **Total** | | **10 pts** |
@@ -31,7 +31,7 @@ qc-grupo-NN-aula02/
 ├── README.md                     # Como rodar o que foi entregue
 ├── diagramas/
 │   └── arquitetura-qc-aula02.png # Diagrama da camada de dados QC (do Ex 2.1)
-├── terraform/                    # main.tf evoluído + storage/rds/secrets/dynamodb/mongo (se N2 ou N3)
+├── terraform/                    # main.tf evoluído + storage/rds/secrets/dynamodb (se N2 ou N3)
 └── scripts/                      # Python: vector search se N3
 ```
 

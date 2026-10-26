@@ -47,7 +47,7 @@ data "aws_vpc" "padrao" {
   default = true
 }
 
-# IP público de saída do CloudShell — usado para liberar o RDS e o Mongo só para você.
+# IP público de saída do CloudShell — usado para liberar o RDS só para você.
 # Se você abrir um CloudShell novo e o IP mudar, rode terraform apply de novo.
 data "http" "meu_ip" {
   url = "https://checkip.amazonaws.com"

@@ -13,7 +13,7 @@
 Esta é a **2ª entrega de grupo** da disciplina. Os 3 níveis são **divisão de trabalho dentro do grupo**, não escolha livre:
 
 - 🟢 **Nível 1 — Básico:** consolida storage, classes do S3, relacional vs NoSQL, IAM do Secrets Manager
-- 🟡 **Nível 2 — Intermediário:** modelagem de dados QC + plano de migração + particionamento DynamoDB (ou Mongo)
+- 🟡 **Nível 2 — Intermediário:** modelagem de dados QC + plano de migração + particionamento DynamoDB
 - 🔴 **Nível 3 — Avançado:** **bônus opcional** — busca híbrida (vetor + full-text), OLAP com Athena (proposta), benchmark
 
 **Mínimo obrigatório:** N1 + N2 cobertos. **N3 é bônus** (até +2 pts extras).
@@ -201,7 +201,7 @@ Use as calculadoras dos 3 provedores se quiser comparar custos.
 
 ---
 
-### Exercício 2.3 — Particionamento no DynamoDB (ou no MongoDB)
+### Exercício 2.3 — Particionamento no DynamoDB
 
 No lab da Aula 2, a tabela `reviews` tem chave de partição `produto_id` e chave de ordenação `review_id`. Responda:
 
@@ -212,11 +212,9 @@ a) Por que **NÃO** seria boa chave de partição:
 
 b) Por que `produto_id` **funciona razoavelmente bem**, mas pode ter um problema. Qual? (Pesquise "hot partition")
 
-c) Se a QC quisesse otimizar para "todas as reviews de um cliente específico", como seria? (Pesquise **Global Secondary Index** no DynamoDB — ou índice composto no MongoDB)
+c) Se a QC quisesse otimizar para "todas as reviews de um cliente específico", como seria? (Pesquise **Global Secondary Index** no DynamoDB)
 
 d) Estime: um produto com 50.000 reviews de ~400 bytes. Quanto ocupa a partição? Compare com o limite de **400 KB por item** e com o limite de **10 GB por valor de chave de partição** (que vale quando a tabela tem Local Secondary Index).
-
-e) **Se o grupo fez o Lab 3C (MongoDB):** como a chave de shard do MongoDB se compara à chave de partição do DynamoDB?
 
 ---
 
@@ -318,7 +316,7 @@ A entrega é **um ZIP por grupo** (`entrega-grupo-NN-aula02.zip`) no Portal FIAP
 |------|--------------|----------------|
 | Cabeçalho do grupo + distribuição do trabalho | ✅ Sim | 1 pt (Critério 4) |
 | 🟢 N1 — Exercícios 1.1, 1.2, 1.3, 1.4 respondidos | ✅ Sim | 3 pts (Critério 1) |
-| 🟡 N2 — 2.1 (matriz + diagrama), 2.2 (migração), 2.3 (particionamento DynamoDB ou Mongo) | ✅ Sim | 3 pts (Critério 2) + 2 pts qualidade técnica (Critério 3) |
+| 🟡 N2 — 2.1 (matriz + diagrama), 2.2 (migração), 2.3 (particionamento DynamoDB) | ✅ Sim | 3 pts (Critério 2) + 2 pts qualidade técnica (Critério 3) |
 | 🔴 N3 — 3.1 (busca híbrida: vetor + full-text), 3.2 (OLAP: proposta com Athena), 3.3 (benchmark) | 🎁 Bônus | até +2 pts extras |
 | Reflexão coletiva ao final | ✅ Sim | 1 pt (Critério 5) |
 | **Total da entrega** | | **10 pts** (10% da nota final) |

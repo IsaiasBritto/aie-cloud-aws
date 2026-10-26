@@ -15,7 +15,6 @@ Preparação  — terraform apply de TODA a camada de dados             ~10 min
 Atividade 1 — Bucket S3 + upload do CSV do catálogo                 ~10 min  (L₁)
 Atividade 2 — RDS PostgreSQL + Secrets Manager + Python             ~15 min  (L₂)
 Atividade 3 — DynamoDB + busca vetorial (pgvector)                  ~35 min  (L₃)
-              MongoDB na EC2 (Parte C)                              demo do professor
 Atividade 4 — Matriz de decisão de dados, em grupo                  ~15 min  (L₄)
 Wrap-up     — terraform destroy + verificação de custo              ~10 min
 ```
@@ -70,7 +69,7 @@ bash ~/aie-cloud/aulas/01-fundamentos-iac/lab/install_terraform.sh
 export PATH="$HOME/bin:$PATH"
 export TF_PLUGIN_CACHE_DIR="$HOME/.terraform.d/plugin-cache"
 
-# Pré-voo: a sessão tem acesso a S3, RDS, DynamoDB, Secrets Manager e EC2?
+# Pré-voo: a sessão tem acesso a S3, RDS, DynamoDB, e Secrets Manager?
 bash ../check_regions.sh
 ```
 
@@ -86,20 +85,17 @@ terraform init
 terraform apply -auto-approve -var="db_password=$DB_PASSWORD"
 ```
 
-> **Professor (demo do MongoDB):** rode `export TF_VAR_criar_mongo=true` **antes** do `apply`. A variável fica valendo para todos os comandos seguintes no terminal; sem ela, um `apply` posterior apagaria a EC2 do Mongo. Os alunos não precisam do Mongo.
-
 Enquanto o Terraform trabalha (~8 min), leia os arquivos:
 
 | Arquivo | O que define |
 |---------|--------------|
 | [main.tf](terraform/main.tf) | Providers, sufixo aleatório, tags padrão, VPC padrão e o IP do CloudShell |
-| [variables.tf](terraform/variables.tf) | `region`, `db_password` e as senhas do MongoDB |
+| [variables.tf](terraform/variables.tf) | `region` e `db_password` |
 | [outputs.tf](terraform/outputs.tf) | Nomes e endpoints consumidos pelos scripts Python |
 | [storage.tf](terraform/storage.tf) | Bucket S3 (pelo módulo [`modulos/bucket-s3`](../../../modulos/bucket-s3/main.tf), que usa a AWS CLI por causa de uma restrição do Learner Lab) + 3 prefixos (`catalogo/`, `imagens/`, `logs/`) + lifecycle |
 | [rds.tf](terraform/rds.tf) | RDS PostgreSQL 16 `db.t3.micro` + security group (só o seu IP) |
-| [secrets.tf](terraform/secrets.tf) | Secrets Manager: connection string do PostgreSQL e credenciais do Mongo |
+| [secrets.tf](terraform/secrets.tf) | Secrets Manager: connection string do PostgreSQL |
 | [dynamodb.tf](terraform/dynamodb.tf) | Tabela DynamoDB on-demand (`produto_id` + `review_id`) |
-| [mongo.tf](terraform/mongo.tf) | EC2 com Docker: MongoDB 7.0 + Mongo Express (Lab 3C, só com `criar_mongo = true`) |
 
 ### Passo 3 — Exporte os outputs
 
@@ -206,7 +202,7 @@ psql "$(aws secretsmanager get-secret-value --secret-id "$SECRET_ID" --query Sec
 
 ---
 
-## Atividade 3 — DynamoDB / MongoDB + busca vetorial (L₃)
+## Atividade 3 — DynamoDB + busca vetorial (L₃)
 
 ### Parte A — DynamoDB (15 min)
 
@@ -254,29 +250,6 @@ psql "$(aws secretsmanager get-secret-value --secret-id "$SECRET_ID" --query Sec
       WHERE a.id = 1 ORDER BY a.embedding <=> b.embedding LIMIT 3;"
 ```
 
-### Parte C — MongoDB na EC2 (demo do professor)
-
-> **Opcional para o aluno.** O ponto aqui não é aprender MongoDB, e sim a decisão **gerenciado (DynamoDB) × autogerenciado (Mongo numa EC2)**: patch, backup, alta disponibilidade e portas passam a ser problema seu. Na AWS, o Mongo gerenciado seria o **Amazon DocumentDB**.
-
-A EC2 só existe se o `apply` rodou com `export TF_VAR_criar_mongo=true` (ver Preparação). Ela sobe o MongoDB 7.0 e o Mongo Express em Docker (~2 min após o apply).
-
-```bash
-# Com TF_VAR_criar_mongo=true já exportado no terminal:
-terraform -chdir="$HOME/aie-cloud/aulas/02-storage-bancos/lab/terraform" apply -auto-approve -var="db_password=$DB_PASSWORD"
-source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh   # exporta MONGO_IP e MONGO_SECRET_ID
-
-python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate
-pip install --no-cache-dir boto3 pymongo
-cd ~/aie-cloud/aulas/02-storage-bancos/lab/scripts
-python3 popular_reviews_mongo.py
-```
-
-O script lê usuário e senha do **Secrets Manager** — o mesmo padrão do RDS.
-
-**Explorar no Mongo Express:** abra `$(terraform output -raw mongo_express_url)` no navegador (usuário `qcadmin`, senha `QCview2024!`) → `qc-db` → `reviews`.
-
-> **Para discutir:** a porta 27017 só aceita o IP do CloudShell, mas a 8081 está aberta para a internet (com senha). Por que essa diferença? O que mudaria em produção?
-
 **✅ Checkpoint L₃:** reviews no DynamoDB e a busca "algo para trabalhar em pé" trouxe a mesa de escritório sem nenhuma palavra em comum?
 
 ---
@@ -306,7 +279,7 @@ cd ~/aie-cloud/aulas/02-storage-bancos/lab/terraform
 terraform destroy -auto-approve -var="db_password=$DB_PASSWORD"
 ```
 
-O destroy apaga bucket (mesmo com objetos: o módulo `modulos/bucket-s3` esvazia antes de apagar), RDS (sem snapshot final), segredos (sem janela de recuperação), tabela DynamoDB e, se foi criada, a EC2 do Mongo. Leva ~5 min por causa do RDS.
+O destroy apaga bucket (mesmo com objetos: o módulo `modulos/bucket-s3` esvazia antes de apagar), RDS (sem snapshot final), segredos (sem janela de recuperação) e tabela DynamoDB. Leva ~5 min por causa do RDS.
 
 **Conferir:**
 - **Resource Groups & Tag Editor → Tag Editor** → região `us-east-1`, tipo *All supported resource types*, tag `aula = 2` → a busca deve voltar **vazia**
@@ -324,8 +297,7 @@ infrastructure/
   ├── storage.tf    (S3: catálogo, imagens, logs + lifecycle)
   ├── rds.tf        (t_produtos — transacional; produtos_vetor — pgvector)
   ├── secrets.tf    (Secrets Manager)
-  ├── dynamodb.tf   (reviews — NoSQL)
-  └── mongo.tf      (reviews — MongoDB na EC2, opcional: criar_mongo = true)
+  └── dynamodb.tf   (reviews — NoSQL)
 ```
 
 - **Aula 3** — a Lambda lê o catálogo do S3
@@ -341,7 +313,7 @@ infrastructure/
 | `AccessDenied ... GetBucketObjectLockConfiguration` no `terraform apply` | O Learner Lab bloqueia essa leitura, que o `aws_s3_bucket` faz sempre. Os labs agora criam o bucket pelo módulo `modulos/bucket-s3` (AWS CLI) | `git -C ~/aie-cloud pull`, `terraform init`, `terraform state rm aws_s3_bucket.qc` e `terraform apply` de novo. O módulo reaproveita o bucket que já foi criado |
 | `ExpiredToken` / `InvalidClientTokenId` | Sessão do Learner Lab acabou | **Start Lab** de novo e abra um CloudShell novo |
 | `InvalidParameterValue: The parameter MasterUserPassword...` | Senha com `/ @ "` ou espaço | `export DB_PASSWORD=$(openssl rand -hex 16)` |
-| Python: `connection timeout` no RDS ou no Mongo | IP do CloudShell mudou | `source ../exportar-outputs.sh` (na pasta `scripts`) mostra o `apply` que libera o novo IP |
+| Python: `connection timeout` no RDS | IP do CloudShell mudou | `source ../exportar-outputs.sh` (na pasta `scripts`) mostra o `apply` que libera o novo IP |
 | `AccessDenied` ao criar recurso | Serviço/tipo fora do que o Learner Lab libera | Confira `bash ../check_regions.sh`; use `us-east-1` |
 | `NoSuchKey` no script | O upload da Atividade 1 não aconteceu | Refaça o `aws s3 cp` e confira com `aws s3 ls` |
 | `ResourceNotFoundException` no Secrets Manager | `SECRET_ID` vazio ou de outro apply | `source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh` |
@@ -349,9 +321,6 @@ infrastructure/
 | `No space left on device` no CloudShell | `$HOME` de 1 GB cheio (providers, pip) | instale os pacotes no venv de `/tmp/venv-qc`, nunca no `$HOME`; `rm -rf ~/.cache/pip ~/.local/lib`; confira com `du -sh ~/.local ~/.cache ~/.terraform.d` e use o `TF_PLUGIN_CACHE_DIR` |
 | `ModuleNotFoundError` no Python | O venv de `/tmp` não está ativo ou foi apagado (a sessão reiniciou) | `python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate` e rode o `pip install` da atividade de novo |
 | `Can not perform a '--user' install` no `pip` | O Python do CloudShell já roda num virtualenv | Use o venv: `python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate` e `pip install` **sem** `--user` |
-| Script do Mongo: `MONGO_IP vazio` | O MongoDB é opcional e não foi criado | É demo do professor: `export TF_VAR_criar_mongo=true` e `apply` |
-| MongoDB: `ServerSelectionTimeoutError` | EC2 ainda subindo os containers | Aguarde 2 min e rode de novo. Log: EC2 → Actions → Monitor → Get system log |
-| Mongo Express pede senha | Basic auth ligado de propósito | Usuário `qcadmin`, senha `QCview2024!` |
 | `BucketAlreadyExists` | Nome global de bucket | O sufixo aleatório evita; rode `terraform apply` de novo |
 
 ---

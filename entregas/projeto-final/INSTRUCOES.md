@@ -127,7 +127,7 @@ Diagrama da arquitetura completa, com todas as camadas:
 
 - **Frontend** (não construído, apenas marcado como integração)
 - **API / Lambda** (5 tools, Function URL)
-- **Dados:** S3, RDS PostgreSQL + pgvector, DynamoDB (e/ou MongoDB)
+- **Dados:** S3, RDS PostgreSQL + pgvector, DynamoDB
 - **Cognitivos:** Transcribe, Polly, Comprehend, Rekognition
 - **Agente:** especificação do agente (subconjunto das tools) e a fronteira em código — o que só um humano aprova (Aula 5, Lab2)
 - **ML (opcional):** SageMaker AI (Training Job + Model Registry + endpoint) — trilho complementar de MLOps
@@ -168,7 +168,7 @@ Lambda consolidada com as rotas:
 |------|------|-----------|
 | `/produtos` | 3 | Lista produtos do S3 filtrados por categoria/nome |
 | `/transcrever` | 4 | Transcribe: fala → texto de áudio do S3 |
-| `/analisar-reviews` | 4 | Comprehend: sentimento + entidades sobre reviews do MongoDB/DynamoDB |
+| `/analisar-reviews` | 4 | Comprehend: sentimento + entidades sobre reviews do DynamoDB |
 | `/analisar-imagem` | 4 | Rekognition: rótulos + texto (OCR) |
 | `/recomendar` | 4/5 | Top 5 produtos similares: por **similaridade de embeddings no pgvector** (Aula 4) ou pelo **endpoint do SageMaker** (trilho complementar de MLOps) |
 

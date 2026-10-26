@@ -30,9 +30,6 @@ aws dynamodb list-tables --region "$REGIAO" --max-items 1 >/dev/null 2>&1 \
 aws secretsmanager list-secrets --region "$REGIAO" --max-results 1 >/dev/null 2>&1 \
   && ok "Secrets Manager" || falha "Secrets Manager"
 
-aws ec2 describe-instance-type-offerings --region "$REGIAO" --filters Name=instance-type,Values=t3.small \
-  --query "length(InstanceTypeOfferings)" --output text 2>/dev/null | grep -qv '^0$' \
-  && ok "EC2 t3.small (MongoDB)" || falha "EC2 t3.small"
 
-echo "IP de saída deste CloudShell (liberado no RDS/Mongo): $(curl -s https://checkip.amazonaws.com)"
+echo "IP de saída deste CloudShell (liberado no RDS): $(curl -s https://checkip.amazonaws.com)"
 [ "$FALHOU" = 0 ] && echo "Tudo pronto para o terraform apply." || { echo "Corrija os itens com ✗ antes de seguir."; exit 1; }

@@ -81,7 +81,7 @@ dois comandos. Os `exportar-outputs.sh` das aulas 2 e 4 já criam e ativam esse 
 
 ### Python 3.9 no CloudShell × Python 3.12 na Lambda
 
-Pacotes com binário (pydantic, pymongo...) instalados no CloudShell não servem na
+Pacotes com binário (pydantic, psycopg-binary...) instalados no CloudShell não servem na
 Lambda. Use `pip install ... --platform manylinux2014_x86_64 --python-version 3.12
 --only-binary=:all:` (a Aula 4 mostra).
 
