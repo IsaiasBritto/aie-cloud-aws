@@ -192,7 +192,10 @@ aws s3 cp "s3://$BUCKET_NAME/catalogo/produtos.csv" - | wc -l     # 21 = cabeça
 
 O Athena consulta arquivos no S3 com SQL. Você declara as colunas e o Athena lê o CSV na hora de cada consulta. O Terraform já criou o **workgroup** (onde ficam os resultados) e o banco **`qc`** do catálogo. A tabela, você escreve.
 
-1. Console → **Athena** → **Query editor** (na primeira vez, **Launch query editor**).
+1. Com o Learner Lab aberto, entre direto no editor clássico por este link:
+   **https://us-east-1.console.aws.amazon.com/athena/home?region=us-east-1#/query-editor**
+
+   > Não entre pela página inicial do Athena: o botão de lá leva para o **SageMaker Unified Studio**, que depende do DataZone e dá `Access denied ... datazone:ListDomains` no Learner Lab.
 2. No canto superior direito, em **Workgroup**, escolha `qc-aula02-xxxxxx` e confirme. Os resultados vão para `s3://<seu-bucket>/athena/`.
 3. À esquerda: **Data source** `AwsDataCatalog`, **Database** `qc`.
 4. Pegue o nome do seu bucket no terminal (`echo $BUCKET_NAME`), troque no SQL abaixo e clique em **Run**:
@@ -222,6 +225,13 @@ GROUP BY categoria
 ORDER BY categoria;
 ```
 
+> **Sem console?** O mesmo SQL roda no terminal com o atalho `qc_athena`, criado pelo `exportar-outputs.sh`. Ele já usa o seu workgroup e o banco `qc`, e o `$BUCKET_NAME` entra sozinho:
+>
+> ```bash
+> qc_athena "CREATE EXTERNAL TABLE IF NOT EXISTS produtos (id int, nome string, descricao string, categoria string, preco double, estoque int) ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' LOCATION 's3://$BUCKET_NAME/catalogo/' TBLPROPERTIES ('skip.header.line.count'='1')"
+> qc_athena "SELECT categoria, COUNT(*) AS qtd, ROUND(AVG(preco),2) AS preco_medio FROM produtos GROUP BY categoria ORDER BY categoria"
+> ```
+
 Repare no **Data scanned** embaixo do resultado: o Athena cobra pelo volume lido (US$ 5 por TB). Aqui são ~2 KB.
 
 > **Schema-on-read.** O `CREATE EXTERNAL TABLE` não copiou nem converteu nada: o arquivo no S3 continua sendo o mesmo CSV. A "tabela" é só uma definição guardada no **Glue Data Catalog** (console → AWS Glue → Data Catalog → Tables → `produtos`), aplicada a cada leitura. Na Atividade 2 você vai ver o oposto, *schema-on-write*.
@@ -240,36 +250,41 @@ Repare no **Data scanned** embaixo do resultado: o Athena cobra pelo volume lido
 
 ## Atividade 2 — RDS PostgreSQL + Secrets Manager + Python (L₂)
 
-### Passo 1 — Conferir o que foi provisionado
-
-- **RDS** → Databases → `qc-aula02-xxxxxx` (PostgreSQL 16, `db.t3.micro`). Aba **Connectivity & security**: o security group só aceita a porta 5432 do IP do seu CloudShell.
-- **Secrets Manager** → `qc-aula02-xxxxxx/postgres`. Clique em **Retrieve secret value** só para ver o formato: o script nunca imprime isso.
-
-### Passo 2 — Prepare o Python e o cliente do banco
+### Passo 1 — Antes: de onde vem a conexão
 
 ```bash
 # Sempre antes do pip: ativa o venv de /tmp (e recupera variáveis e o qc_psql se a sessão caiu)
 source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh
 pip install --no-cache-dir boto3 "psycopg[binary]" pgcli
+
+# A connection string que o script vai ler, com a senha escondida
+aws secretsmanager get-secret-value --secret-id "$SECRET_ID" --query SecretString --output text \
+  | sed -E 's#(postgresql://[^:]+:)[^@]+@#\1*****@#'
 ```
 
-### Passo 3 — Antes: o banco existe, mas está vazio
+Cada pedaço da connection string veio do Terraform:
+
+| Pedaço | De onde veio |
+|---|---|
+| `qcadmin` | `username` no [`rds.tf`](terraform/rds.tf) |
+| a senha (`*****`) | a `DB_PASSWORD` que você gerou com `openssl` na Preparação |
+| o host `...rds.amazonaws.com:5432` | o endereço do RDS, criado pelo `apply` |
+| `/qcdb` | `db_name` no `rds.tf` |
+| `?sslmode=require` | montado no [`secrets.tf`](terraform/secrets.tf): a conexão só sobe criptografada |
+
+> No console, o segredo fica em **Secrets Manager → Secrets → `qc-aula02-xxxxxx/postgres` → Retrieve secret value**. Lá a senha aparece aberta: não projete essa tela.
+
+### Passo 2 — Antes: o que o script vai criar
 
 ```bash
-qc_psql
+cd ~/aie-cloud/aulas/02-storage-bancos/lab/scripts
+head -2 ../data/produtos.csv
+grep -A8 "CREATE TABLE" popular_produtos.py
 ```
 
-Você entra no pgcli, conectado ao banco `qcdb`. Digite um comando por vez:
+No CSV tudo é texto. Na tabela, cada coluna tem tipo: `preco` vira `NUMERIC(10,2)`, com duas casas exatas, e `estoque` vira `INTEGER`. Isso é **schema-on-write**: o banco define o formato antes e recusa o que não couber. No Athena (Atividade 1), o esquema foi aplicado na leitura, sobre o arquivo como ele está.
 
-```sql
-SELECT current_database() AS banco, current_user AS usuario, version();
-SELECT ssl, version AS tls FROM pg_stat_ssl WHERE pid = pg_backend_pid();
-\dt
-```
-
-O `\dt` lista as tabelas: nenhuma. Saia com `\q`.
-
-### Passo 4 — Execute: o script de carga
+### Passo 3 — Execute: o script de carga
 
 O [`popular_produtos.py`](scripts/popular_produtos.py): lê a connection string do Secrets Manager → baixa o CSV do S3 → conecta no RDS via `psycopg` → cria `t_produtos` (drop se existir) → insere os 20 produtos.
 
@@ -282,7 +297,7 @@ Saída esperada: `✓ 20 produtos inseridos` e o top 3 mais caros.
 
 > **Erro comum — `connection timeout`:** o IP do CloudShell mudou desde o apply. Rode o `source` do `exportar-outputs.sh`: ele confirma a troca de IP e mostra o `apply` que libera o novo.
 
-### Passo 5 — Depois: os dados no banco
+### Passo 4 — Depois: os dados no banco
 
 ```bash
 qc_psql
@@ -299,19 +314,20 @@ GROUP BY categoria
 ORDER BY categoria;
 ```
 
-A última consulta é a mesma que você rodou no Athena. O resultado tem que bater.
+A última consulta é a mesma que você rodou no Athena. O resultado tem que bater. Para sair do pgcli, `\q`.
+
+> Se o resultado for grande, o pgcli abre um paginador e aparece `(END)` ou `:` no canto da tela. Aperte **`q`** para voltar ao prompt.
 
 **No console do RDS**, aba **Monitoring**: os gráficos **DB Connections** e **Write IOPS** mostram o pico na hora em que o script rodou. As métricas chegam com 1 ou 2 minutos de atraso.
 
-> **Schema-on-write.** No Athena, o CSV continua CSV e o esquema é aplicado na leitura. Aqui a tabela foi criada antes (`\d t_produtos`) e cada valor foi convertido ao ser gravado: `preco` virou `NUMERIC(10,2)`, com duas casas exatas, em vez do `double` do Athena. O banco recusa o que não cabe no esquema; o Athena só descobre o problema quando alguém consulta.
+> O `\d t_produtos` confirma o que você leu no `CREATE TABLE` do Passo 2: o dado foi convertido na gravação. No Athena, o mesmo preço é um `double`, lido do texto a cada consulta.
 
-### Passo 6 — Responda
+### Passo 5 — Responda
 
-1. Quem criou o banco `qcdb`, se o script só cria a tabela? *(veja o `rds.tf`)*
-2. Por que a conexão aparece com `ssl = t`? Onde isso foi pedido? *(veja a connection string no `secrets.tf`)*
-3. O que aconteceria se a connection string viesse escrita no `popular_produtos.py` e o arquivo fosse commitado num repositório público?
-4. Como você protegeria esse segredo num agente rodando numa AWS Lambda? *(dica: a função lê o segredo em runtime com a execution role, e o Secrets Manager pode rotacionar a senha sozinho)*
-5. Por que o `boto3` "simplesmente funciona" no CloudShell, sem chave? De onde vem a credencial? E no seu notebook?
+1. No Athena o preço é `double`; no RDS, `NUMERIC(10,2)`. Por que essa diferença importa quando o dado é dinheiro?
+2. O que aconteceria se a connection string viesse escrita no `popular_produtos.py` e o arquivo fosse commitado num repositório público?
+3. Como você protegeria esse segredo num agente rodando numa AWS Lambda? *(dica: a função lê o segredo em runtime com a execution role, e o Secrets Manager pode rotacionar a senha sozinho)*
+4. Por que o `boto3` "simplesmente funciona" no CloudShell, sem chave? De onde vem a credencial? E no seu notebook?
 
 **✅ Checkpoint L₂:** a consulta por categoria deu o mesmo resultado no Athena e no RDS?
 
@@ -544,6 +560,8 @@ infrastructure/
 | `pip` avisa que `aws-sam-cli requires click==8.1.8` | O `pip install` rodou fora do venv e mexeu no Python do próprio CloudShell | `pip uninstall -y pgcli pgspecial cli_helpers psycopg` e `pip install "click==8.1.8"`; depois rode o `source` do `exportar-outputs.sh` e repita o `pip install` |
 | `qc_psql: command not found` | O atalho só existe depois do `source` | `source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh` |
 | `qc_psql` diz "Instale um cliente" | O pgcli não está no venv (o `/tmp` foi limpo) | `pip install --no-cache-dir pgcli` |
+| A tela mostra `(END)` ou `:` e não aceita comandos | O pgcli abriu o paginador para um resultado grande | Aperte `q`; use `LIMIT` nas consultas |
+| Athena: `Access denied ... datazone:ListDomains` | Você entrou pela página inicial do Athena, que leva ao SageMaker Unified Studio | Use o link direto do editor clássico (Atividade 1, Passo 4), ou o atalho `qc_athena` no terminal |
 | Athena: `Table already exists` | O `CREATE EXTERNAL TABLE` já rodou | Siga para os `SELECT`; para recriar, `DROP TABLE qc.produtos;` antes |
 | Athena: `No output location provided` | Workgroup errado selecionado (`primary`) | No canto superior direito, troque o **Workgroup** para `qc-aula02-xxxxxx` |
 | Athena volta 0 linhas | `LOCATION` com o nome do bucket errado ou sem a barra final | Confira com `echo $BUCKET_NAME`; o caminho termina em `/catalogo/` |

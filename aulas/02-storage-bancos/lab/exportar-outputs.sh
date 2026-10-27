@@ -4,7 +4,7 @@
 #   - exporta os outputs do Terraform que os scripts Python usam;
 #   - recupera a DB_PASSWORD do Secrets Manager (para apply/destroy);
 #   - cria (se preciso) e ativa o venv /tmp/venv-qc, fora do $HOME de 1 GB;
-#   - cria o atalho qc_psql (abre o banco sem mostrar a senha);
+#   - cria os atalhos qc_psql (abre o banco sem mostrar a senha) e qc_athena;
 #   - avisa se o IP do CloudShell mudou (o RDS só aceita o IP antigo).
 #
 #   source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh
@@ -74,13 +74,39 @@ qc_psql() {
   _url="$(aws secretsmanager get-secret-value --secret-id "$SECRET_ID" \
           --query SecretString --output text)" || return 1
   if [ $# -eq 0 ] && command -v pgcli >/dev/null 2>&1; then
-    pgcli "$_url"
+    # less -SRXF: resultado curto aparece direto; longo abre o paginador (sair com q)
+    PAGER="less -SRXF" pgcli "$_url"
   elif command -v psql >/dev/null 2>&1; then
     psql "$_url" "$@"
   else
     echo "Instale um cliente: pip install pgcli  (ou: sudo dnf install -y postgresql16 < /dev/null)" >&2
     return 1
   fi
+}
+
+# Atalho para o Athena no terminal (alternativa ao console). Usa o workgroup do
+# lab e o banco qc; mostra o resultado em colunas e quantos bytes foram lidos.
+#   qc_athena "SELECT * FROM produtos LIMIT 5"
+qc_athena() {
+  local _id _st
+  _id="$(aws athena start-query-execution --work-group "$ATHENA_WORKGROUP" \
+          --query-execution-context Database=qc --query-string "$1" \
+          --query QueryExecutionId --output text)" || return 1
+  while :; do
+    _st="$(aws athena get-query-execution --query-execution-id "$_id" \
+            --query QueryExecution.Status.State --output text)"
+    case "$_st" in SUCCEEDED|FAILED|CANCELLED) break ;; esac
+    sleep 1
+  done
+  if [ "$_st" != "SUCCEEDED" ]; then
+    aws athena get-query-execution --query-execution-id "$_id" \
+      --query QueryExecution.Status.StateChangeReason --output text >&2
+    return 1
+  fi
+  aws athena get-query-results --query-execution-id "$_id" \
+    --query 'ResultSet.Rows[].[Data[].VarCharValue]' --output text | column -t -s $'\t'
+  echo "(lidos: $(aws athena get-query-execution --query-execution-id "$_id" \
+    --query QueryExecution.Statistics.DataScannedInBytes --output text) bytes)"
 }
 
 # IP do CloudShell mudou? Então o RDS vai dar timeout até reaplicar.
