@@ -4,6 +4,7 @@
 #   - exporta os outputs do Terraform que os scripts Python usam;
 #   - recupera a DB_PASSWORD do Secrets Manager (para apply/destroy);
 #   - cria (se preciso) e ativa o venv /tmp/venv-qc, fora do $HOME de 1 GB;
+#   - cria o atalho qc_psql (abre o banco sem mostrar a senha);
 #   - avisa se o IP do CloudShell mudou (o RDS só aceita o IP antigo).
 #
 #   source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh
@@ -38,7 +39,8 @@ BUCKET_NAME="$(_qc_out bucket_name)"
 SECRET_ID="$(_qc_out secret_id)"
 DYNAMO_TABLE="$(_qc_out dynamodb_table)"
 DB_HOST="$(_qc_out db_endpoint)"
-export BUCKET_NAME SECRET_ID DYNAMO_TABLE DB_HOST
+ATHENA_WORKGROUP="$(_qc_out athena_workgroup)"
+export BUCKET_NAME SECRET_ID DYNAMO_TABLE DB_HOST ATHENA_WORKGROUP
 
 # Senha do RDS: se a sessão caiu, ela está na connection string do segredo
 if [ -z "${DB_PASSWORD:-}" ] && [ -n "$SECRET_ID" ]; then
@@ -54,6 +56,7 @@ echo "Bucket    : ${BUCKET_NAME:-VAZIO}"
 echo "Secret    : ${SECRET_ID:-VAZIO}"
 echo "DynamoDB  : ${DYNAMO_TABLE:-VAZIO}"
 echo "RDS       : ${DB_HOST:-VAZIO}"
+echo "Athena    : workgroup ${ATHENA_WORKGROUP:-VAZIO}, banco qc"
 echo "Senha RDS : $([ -n "${DB_PASSWORD:-}" ] && echo 'recuperada' || echo 'VAZIA')"
 
 if [ -z "$BUCKET_NAME" ] || [ -z "$SECRET_ID" ]; then
@@ -61,6 +64,24 @@ if [ -z "$BUCKET_NAME" ] || [ -z "$SECRET_ID" ]; then
   echo "AVISO: outputs vazios. O terraform apply completou? Rode 'terraform output'" >&2
   echo "       em $_qc_dir para conferir." >&2
 fi
+
+# Atalho para abrir o PostgreSQL do RDS. A connection string (com a senha) vem do
+# Secrets Manager na hora e não aparece na tela nem fica numa variável.
+#   qc_psql                       -> modo interativo (pgcli, se instalado; senão psql)
+#   qc_psql -c "SELECT ..."       -> uma consulta só (psql)
+qc_psql() {
+  local _url
+  _url="$(aws secretsmanager get-secret-value --secret-id "$SECRET_ID" \
+          --query SecretString --output text)" || return 1
+  if [ $# -eq 0 ] && command -v pgcli >/dev/null 2>&1; then
+    pgcli "$_url"
+  elif command -v psql >/dev/null 2>&1; then
+    psql "$_url" "$@"
+  else
+    echo "Instale um cliente: pip install pgcli  (ou: sudo dnf install -y postgresql16 < /dev/null)" >&2
+    return 1
+  fi
+}
 
 # IP do CloudShell mudou? Então o RDS vai dar timeout até reaplicar.
 _qc_ip_tf="$(_qc_out meu_ip)"

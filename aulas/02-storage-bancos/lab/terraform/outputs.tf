@@ -25,6 +25,16 @@ output "db_name" {
   value       = aws_db_instance.qc.db_name
 }
 
+output "athena_workgroup" {
+  description = "Workgroup do Athena (escolha este no console antes de consultar)"
+  value       = aws_athena_workgroup.qc.name
+}
+
+output "glue_database" {
+  description = "Banco do catálogo onde o aluno cria a tabela do Athena"
+  value       = aws_glue_catalog_database.qc.name
+}
+
 output "meu_ip" {
   description = "IP do CloudShell liberado no RDS"
   value       = local.meu_ip_cidr

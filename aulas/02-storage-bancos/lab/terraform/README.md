@@ -10,7 +10,8 @@ Provisiona, num único `apply`, a camada de dados da Quantum Commerce na AWS:
 | [rds.tf](rds.tf) | RDS PostgreSQL 16 `db.t3.micro` (pgvector disponível) + security group só para o seu IP |
 | [secrets.tf](secrets.tf) | Secrets Manager: connection string do PostgreSQL |
 | [dynamodb.tf](dynamodb.tf) | Tabela on-demand `reviews` (partição `produto_id`, ordenação `review_id`) |
-| [outputs.tf](outputs.tf) | `bucket_name`, `secret_id`, `dynamodb_table`, `db_endpoint`, `meu_ip` |
+| [athena.tf](athena.tf) | Workgroup do Athena (resultados em `s3://<bucket>/athena/`) e banco `qc` do Glue Data Catalog. A tabela sobre o CSV o aluno cria no console (Atividade 1) |
+| [outputs.tf](outputs.tf) | `bucket_name`, `secret_id`, `dynamodb_table`, `db_endpoint`, `athena_workgroup`, `glue_database`, `meu_ip` |
 
 ## Como usar (AWS CloudShell, Learner Lab iniciado)
 

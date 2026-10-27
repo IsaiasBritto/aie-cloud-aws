@@ -12,9 +12,10 @@
 ```
 Abertura    — fechar a Aula 1 (limpeza + Atividade 5 de Terraform)  ~20 min
 Preparação  — terraform apply de TODA a camada de dados             ~10 min
-Atividade 1 — Bucket S3 + upload do CSV do catálogo                 ~10 min  (L₁)
-Atividade 2 — RDS PostgreSQL + Secrets Manager + Python             ~15 min  (L₂)
+Atividade 1 — S3: upload do CSV + SQL no arquivo com o Athena       ~20 min  (L₁)
+Atividade 2 — RDS PostgreSQL + Secrets Manager + Python             ~25 min  (L₂)
 Atividade 3 — DynamoDB + busca vetorial (pgvector)                  ~35 min  (L₃)
+              Siga o produto 1 (o mesmo dado em cada banco)         ~10 min
 Atividade 4 — Matriz de decisão de dados, em grupo                  ~15 min  (L₄)
 Wrap-up     — terraform destroy + verificação de custo              ~10 min
 ```
@@ -96,68 +97,144 @@ Enquanto o Terraform trabalha (~8 min), leia os arquivos:
 | [rds.tf](terraform/rds.tf) | RDS PostgreSQL 16 `db.t3.micro` + security group (só o seu IP) |
 | [secrets.tf](terraform/secrets.tf) | Secrets Manager: connection string do PostgreSQL |
 | [dynamodb.tf](terraform/dynamodb.tf) | Tabela DynamoDB on-demand (`produto_id` + `review_id`) |
+| [athena.tf](terraform/athena.tf) | Workgroup do Athena (resultados em `athena/` no bucket) e banco `qc` do Glue Data Catalog |
 
-### Passo 3 — Exporte os outputs
-
-```bash
-# Armazena em variáveis valores criados pelo terraform
-export BUCKET_NAME=$(terraform output -raw bucket_name)
-export SECRET_ID=$(terraform output -raw secret_id)
-export DYNAMO_TABLE=$(terraform output -raw dynamodb_table)
-export DB_HOST=$(terraform output -raw db_endpoint)
-
-# Pacotes Python num venv em /tmp, fora do $HOME (que tem só 1 GB).
-# O Python do CloudShell já roda num virtualenv e recusa o "pip install --user".
-python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate
-
-# Exibe em tela
-echo "Bucket: $BUCKET_NAME"
-echo "Secret: $SECRET_ID"
-echo "DynamoDB: $DYNAMO_TABLE"
-echo "RDS: $DB_HOST"
-```
-
-### Se a sessão do CloudShell cair
-
-O CloudShell encerra a sessão depois de ~20 min sem uso — e os blocos de teoria duram mais que isso. As variáveis somem, mas o estado do Terraform fica no `$HOME`. Um comando recupera tudo:
+### Passo 3 — Carregue as variáveis da sessão
 
 ```bash
 source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh
 ```
 
-O [`exportar-outputs.sh`](exportar-outputs.sh) exporta os outputs, recupera a `DB_PASSWORD` do Secrets Manager, ativa o venv de `/tmp/venv-qc` (e cria, se a sessão reiniciou) e **avisa se o IP do CloudShell mudou** — nesse caso, ele mostra o `terraform apply` que libera o novo IP no RDS.
+O [`exportar-outputs.sh`](exportar-outputs.sh) faz quatro coisas, e vale abrir o arquivo para ver como:
 
-> Use `source`, não `bash`: com `bash`, as variáveis morrem junto com o processo. Os pacotes do `pip` ficam em `/tmp`, que é limpo quando a sessão reinicia: se der `ModuleNotFoundError`, rode o `pip install` da atividade de novo.
+- lê os outputs do Terraform (`terraform output -raw bucket_name`, `secret_id`...) e exporta como variáveis: `BUCKET_NAME`, `SECRET_ID`, `DYNAMO_TABLE`, `DB_HOST`, `ATHENA_WORKGROUP`;
+- cria e ativa um venv Python em `/tmp/venv-qc`, fora do `$HOME`, que tem só 1 GB. O Python do CloudShell já roda num virtualenv e recusa o `pip install --user`;
+- cria o atalho **`qc_psql`**, que abre o PostgreSQL do RDS buscando a connection string no Secrets Manager na hora. A senha não aparece na tela nem fica guardada numa variável;
+- avisa se o IP do CloudShell mudou desde o `apply` (o RDS só aceita o IP antigo) e mostra o comando que libera o novo.
+
+> Use `source`, não `bash`: com `bash`, as variáveis e o atalho morrem junto com o processo.
+
+### Se a sessão do CloudShell cair
+
+O CloudShell encerra a sessão depois de ~20 min sem uso, e os blocos de teoria duram mais que isso. Variáveis, venv e atalho somem, mas o estado do Terraform fica no `$HOME`. Rode o mesmo `source` do Passo 3. Se aparecer `ModuleNotFoundError` ou `pgcli: command not found`, o `/tmp` foi limpo: refaça o `pip install` da atividade.
 
 ---
 
-## Atividade 1 — Bucket S3 + upload do CSV (L₁)
+## Como estudar cada atividade: olhe antes, execute, olhe depois
 
-### Passo 1 — Conferir o que foi provisionado
+Os scripts fazem o trabalho pesado, mas o objetivo é você entender **onde o dado está e em que forma**. Por isso cada atividade segue o mesmo ciclo:
+
+1. **Antes:** abra o destino e veja como ele está, quase sempre vazio.
+2. **Execute:** rode o script.
+3. **Depois:** volte ao destino e encontre o dado que o script gravou.
+4. **Responda:** as perguntas no fim de cada parte. Elas caem na entrega.
+
+Ferramentas que você vai usar para olhar:
+
+| Onde está o dado | Como olhar |
+|---|---|
+| Arquivo no S3 | Console do S3, AWS CLI e **Athena**: SQL direto sobre o arquivo, sem banco no meio |
+| PostgreSQL no RDS | **`qc_psql`**, que abre o **pgcli**: cliente de terminal com autocompletar e resultado em tabela |
+| DynamoDB | Console (**Explore table items**) e AWS CLI |
+
+> **Por que não o "Query editor" do console do RDS?** Ele só funciona com Aurora e Data API, e a Data API exige classes de instância que o Learner Lab não libera. Para o banco, o caminho é um cliente: aqui, o pgcli no CloudShell.
+
+---
+
+## Atividade 1 — Bucket S3, o arquivo na origem (L₁)
+
+### Passo 1 — Antes: o bucket recém-criado
 
 No console: **S3** → bucket `qc-aula02-xxxxxx` → prefixos `catalogo/`, `imagens/`, `logs/`. Aba **Management**: a regra `logs-lifecycle` (Standard → Standard-IA em 30 dias → Glacier em 90 → expira em 365).
 
-### Passo 2 — Upload do CSV de produtos
+No terminal:
 
 ```bash
-# 1. Localize e explore o arquivo
-ls ~/aie-cloud/aulas/02-storage-bancos/lab/data/
+aws s3 ls "s3://$BUCKET_NAME" --recursive
+```
+
+Aparecem três "objetos" de 0 bytes, `catalogo/`, `imagens/` e `logs/`. No S3 não existe pasta: o Terraform criou objetos vazios com nome terminado em `/` só para o prefixo aparecer no console.
+
+### Passo 2 — Execute: upload do CSV
+
+```bash
+# 1. O arquivo, ainda no CloudShell
 head -5 ~/aie-cloud/aulas/02-storage-bancos/lab/data/produtos.csv
 
-# 2. Confira a identidade (no Learner Lab, a LabRole já acessa o S3)
+# 2. Quem está fazendo o upload? (no Learner Lab, a LabRole)
 aws sts get-caller-identity
 
 # 3. Upload para o prefixo catalogo/
 aws s3 cp ~/aie-cloud/aulas/02-storage-bancos/lab/data/produtos.csv \
-  s3://$BUCKET_NAME/catalogo/produtos.csv
-
-# 4. Confirme
-aws s3 ls s3://$BUCKET_NAME/catalogo/
+  "s3://$BUCKET_NAME/catalogo/produtos.csv"
 ```
 
-> **Para discutir:** quem autorizou o upload? A **LabRole** da sua sessão, via política IAM. Não existe "chave do bucket" que dê acesso total a quem a tiver — a permissão é sempre de uma identidade, e o CloudTrail registra qual identidade fez o quê.
+### Passo 3 — Depois: o objeto no S3
 
-**✅ Checkpoint L₁:** `produtos.csv` aparece em `catalogo/`?
+**No console:** abra `catalogo/produtos.csv`. Na aba **Properties**, veja tamanho, classe de armazenamento (Standard), criptografia (SSE-S3) e **ETag**. O botão **Open** mostra o conteúdo.
+
+**No terminal:**
+
+```bash
+# Metadados do objeto (a classe Standard aparece como null: é o padrão)
+aws s3api head-object --bucket "$BUCKET_NAME" --key catalogo/produtos.csv \
+  --query "{tamanho: ContentLength, tipo: ContentType, criptografia: ServerSideEncryption, etag: ETag}"
+
+# O arquivo chegou íntegro? Num upload simples, o ETag é o MD5 do conteúdo
+md5sum ~/aie-cloud/aulas/02-storage-bancos/lab/data/produtos.csv
+
+# Ler o arquivo direto do S3, sem baixar para o disco
+aws s3 cp "s3://$BUCKET_NAME/catalogo/produtos.csv" - | head -3
+aws s3 cp "s3://$BUCKET_NAME/catalogo/produtos.csv" - | wc -l     # 21 = cabeçalho + 20 produtos
+```
+
+### Passo 4 — SQL sobre o arquivo, com o Athena
+
+O Athena consulta arquivos no S3 com SQL. Você declara as colunas e o Athena lê o CSV na hora de cada consulta. O Terraform já criou o **workgroup** (onde ficam os resultados) e o banco **`qc`** do catálogo. A tabela, você escreve.
+
+1. Console → **Athena** → **Query editor** (na primeira vez, **Launch query editor**).
+2. No canto superior direito, em **Workgroup**, escolha `qc-aula02-xxxxxx` e confirme. Os resultados vão para `s3://<seu-bucket>/athena/`.
+3. À esquerda: **Data source** `AwsDataCatalog`, **Database** `qc`.
+4. Pegue o nome do seu bucket no terminal (`echo $BUCKET_NAME`), troque no SQL abaixo e clique em **Run**:
+
+```sql
+CREATE EXTERNAL TABLE qc.produtos (
+  id        int,
+  nome      string,
+  descricao string,
+  categoria string,
+  preco     double,
+  estoque   int
+)
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+LOCATION 's3://qc-aula02-xxxxxx/catalogo/'
+TBLPROPERTIES ('skip.header.line.count' = '1');
+```
+
+5. Consulte o arquivo:
+
+```sql
+SELECT * FROM qc.produtos ORDER BY id LIMIT 5;
+
+SELECT categoria, COUNT(*) AS qtd, ROUND(AVG(preco), 2) AS preco_medio
+FROM qc.produtos
+GROUP BY categoria
+ORDER BY categoria;
+```
+
+Repare no **Data scanned** embaixo do resultado: o Athena cobra pelo volume lido (US$ 5 por TB). Aqui são ~2 KB.
+
+> **Schema-on-read.** O `CREATE EXTERNAL TABLE` não copiou nem converteu nada: o arquivo no S3 continua sendo o mesmo CSV. A "tabela" é só uma definição guardada no **Glue Data Catalog** (console → AWS Glue → Data Catalog → Tables → `produtos`), aplicada a cada leitura. Na Atividade 2 você vai ver o oposto, *schema-on-write*.
+>
+> O `FIELDS TERMINATED BY ','` funciona porque nenhum campo deste CSV tem vírgula no meio. Um CSV com campos entre aspas e vírgulas internas pediria outro leitor (`OpenCSVSerde`).
+
+### Passo 5 — Responda
+
+1. O arquivo no S3 é igual ao do repositório? Como você provou isso?
+2. Quem autorizou o upload? *(dica: a identidade do `get-caller-identity`, via política IAM. Não existe "chave do bucket": a permissão é sempre de uma identidade, e o CloudTrail registra qual identidade fez o quê.)*
+3. Se alguém subir um segundo CSV em `catalogo/`, o que acontece com o `SELECT COUNT(*)` do Athena? Por quê?
+
+**✅ Checkpoint L₁:** o `produtos.csv` está em `catalogo/` e o Athena devolveu as 6 categorias?
 
 ---
 
@@ -166,49 +243,77 @@ aws s3 ls s3://$BUCKET_NAME/catalogo/
 ### Passo 1 — Conferir o que foi provisionado
 
 - **RDS** → Databases → `qc-aula02-xxxxxx` (PostgreSQL 16, `db.t3.micro`). Aba **Connectivity & security**: o security group só aceita a porta 5432 do IP do seu CloudShell.
-- **Secrets Manager** → `qc-aula02-xxxxxx/postgres`. Clique em **Retrieve secret value** só para ver o formato — o script nunca imprime isso.
+- **Secrets Manager** → `qc-aula02-xxxxxx/postgres`. Clique em **Retrieve secret value** só para ver o formato: o script nunca imprime isso.
 
-### Passo 2 — Rodar o script
+### Passo 2 — Prepare o Python e o cliente do banco
+
+```bash
+# Sempre antes do pip: ativa o venv de /tmp (e recupera variáveis e o qc_psql se a sessão caiu)
+source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh
+pip install --no-cache-dir boto3 "psycopg[binary]" pgcli
+```
+
+### Passo 3 — Antes: o banco existe, mas está vazio
+
+```bash
+qc_psql
+```
+
+Você entra no pgcli, conectado ao banco `qcdb`. Digite um comando por vez:
+
+```sql
+SELECT current_database() AS banco, current_user AS usuario, version();
+SELECT ssl, version AS tls FROM pg_stat_ssl WHERE pid = pg_backend_pid();
+\dt
+```
+
+O `\dt` lista as tabelas: nenhuma. Saia com `\q`.
+
+### Passo 4 — Execute: o script de carga
 
 O [`popular_produtos.py`](scripts/popular_produtos.py): lê a connection string do Secrets Manager → baixa o CSV do S3 → conecta no RDS via `psycopg` → cria `t_produtos` (drop se existir) → insere os 20 produtos.
 
 ```bash
-# Perdeu a sessão? source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh
-python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate
-pip install --no-cache-dir boto3 "psycopg[binary]"
 cd ~/aie-cloud/aulas/02-storage-bancos/lab/scripts
 python3 popular_produtos.py
 ```
 
 Saída esperada: `✓ 20 produtos inseridos` e o top 3 mais caros.
 
-> **Erro comum — `connection timeout`:** o IP do CloudShell mudou desde o apply. Rode `source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh`: ele confirma a troca de IP e mostra o `apply` que libera o novo.
+> **Erro comum — `connection timeout`:** o IP do CloudShell mudou desde o apply. Rode o `source` do `exportar-outputs.sh`: ele confirma a troca de IP e mostra o `apply` que libera o novo.
 
-### Passo 3 — Consultar pelo psql (opcional)
-
-Em dois blocos: cole o primeiro, **espere terminar** e só então cole o segundo.
+### Passo 5 — Depois: os dados no banco
 
 ```bash
-# 1. Instala o cliente psql (só se ainda não estiver instalado)
-command -v psql >/dev/null || sudo dnf install -y postgresql16 < /dev/null
-psql --version
+qc_psql
 ```
 
-```bash
-# 2. Consulta: a connection string vem do Secrets Manager, sem aparecer na tela
-psql "$(aws secretsmanager get-secret-value --secret-id "$SECRET_ID" --query SecretString --output text)" \
-  -c "SELECT categoria, COUNT(*), ROUND(AVG(preco),2) FROM t_produtos GROUP BY categoria;"
+```sql
+\d t_produtos
+SELECT COUNT(*) FROM t_produtos;
+SELECT * FROM t_produtos ORDER BY id LIMIT 5;
+
+SELECT categoria, COUNT(*) AS qtd, ROUND(AVG(preco), 2) AS preco_medio
+FROM t_produtos
+GROUP BY categoria
+ORDER BY categoria;
 ```
 
-> **Por que separado?** Colando tudo de uma vez, o `dnf` lê o terminal enquanto instala e "engole" a linha do `psql`, que some sem erro nenhum. O `< /dev/null` evita isso, mas o bloco separado é o jeito garantido. Se `psql --version` der `command not found`, a instalação falhou: a mensagem de erro do `dnf` aparece logo acima.
+A última consulta é a mesma que você rodou no Athena. O resultado tem que bater.
 
-**✅ Checkpoint L₂:** você inseriu 20 produtos no RDS **lendo o segredo do Secrets Manager**?
+**No console do RDS**, aba **Monitoring**: os gráficos **DB Connections** e **Write IOPS** mostram o pico na hora em que o script rodou. As métricas chegam com 1 ou 2 minutos de atraso.
 
-### Passo 4 — Discussão (3 min)
+> **Schema-on-write.** No Athena, o CSV continua CSV e o esquema é aplicado na leitura. Aqui a tabela foi criada antes (`\d t_produtos`) e cada valor foi convertido ao ser gravado: `preco` virou `NUMERIC(10,2)`, com duas casas exatas, em vez do `double` do Athena. O banco recusa o que não cabe no esquema; o Athena só descobre o problema quando alguém consulta.
 
-1. O que aconteceria se a `conn_str` viesse hardcoded no `popular_produtos.py` e o arquivo fosse commitado num repo público?
-2. Como você protegeria esse segredo se ele fosse usado por um agente rodando numa AWS Lambda? *(dica: a função lê o segredo em runtime com a execution role — e o Secrets Manager pode rotacionar a senha sozinho)*
-3. Por que o `boto3` "simplesmente funciona" no CloudShell, sem chave? De onde vem a credencial? E no seu notebook?
+### Passo 6 — Responda
+
+1. Quem criou o banco `qcdb`, se o script só cria a tabela? *(veja o `rds.tf`)*
+2. Por que a conexão aparece com `ssl = t`? Onde isso foi pedido? *(veja a connection string no `secrets.tf`)*
+3. O que aconteceria se a connection string viesse escrita no `popular_produtos.py` e o arquivo fosse commitado num repositório público?
+4. Como você protegeria esse segredo num agente rodando numa AWS Lambda? *(dica: a função lê o segredo em runtime com a execution role, e o Secrets Manager pode rotacionar a senha sozinho)*
+5. Por que o `boto3` "simplesmente funciona" no CloudShell, sem chave? De onde vem a credencial? E no seu notebook?
+
+**✅ Checkpoint L₂:** a consulta por categoria deu o mesmo resultado no Athena e no RDS?
 
 ---
 
@@ -218,21 +323,83 @@ psql "$(aws secretsmanager get-secret-value --secret-id "$SECRET_ID" --query Sec
 
 **Conferir:** console **DynamoDB** → Tables → `qc-aula02-xxxxxx-reviews` → chave de partição `produto_id` (Number) e de ordenação `review_id` (String). Capacidade **On-demand**.
 
-O [`popular_reviews.py`](scripts/popular_reviews.py) insere 30 reviews com `batch_writer` e faz uma **Query** na partição `produto_id = 5` filtrando `score >= 4`.
+**Antes:**
 
 ```bash
-# Perdeu a sessão? source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh
-python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate
-pip install --no-cache-dir boto3
+aws dynamodb scan --table-name "$DYNAMO_TABLE" --select COUNT --query "{itens: Count}"
+```
+
+Zero itens. No console, **Explore table items** mostra a tabela vazia.
+
+> Não confie no `ItemCount` do console ou do `describe-table` para isso: a AWS só atualiza esse número a cada ~6 horas.
+
+**Execute:** o [`popular_reviews.py`](scripts/popular_reviews.py) insere 30 reviews com `batch_writer` e faz uma **Query** na partição `produto_id = 5`, filtrando `score >= 4`.
+
+```bash
+# Sempre antes do pip: ativa o venv de /tmp (e recupera variáveis e o qc_psql se a sessão caiu)
+source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh
 cd ~/aie-cloud/aulas/02-storage-bancos/lab/scripts
 python3 popular_reviews.py
 ```
 
-**Explorar no console:** a tabela → **Explore table items** → **Query** com `produto_id = 5`. Compare com **Scan**: a Query lê uma partição; o Scan lê a tabela inteira (e cobra por isso).
+**Depois:**
+
+```bash
+# Um item como o DynamoDB guarda: cada atributo leva o tipo (N = número, S = texto)
+aws dynamodb query --table-name "$DYNAMO_TABLE" \
+  --key-condition-expression "produto_id = :p" \
+  --expression-attribute-values '{":p": {"N": "5"}}' \
+  --query "Items[0]"
+
+# A mesma pergunta de dois jeitos: Query (uma partição) × Scan (a tabela inteira)
+aws dynamodb query --table-name "$DYNAMO_TABLE" \
+  --key-condition-expression "produto_id = :p" \
+  --expression-attribute-values '{":p": {"N": "5"}}' \
+  --return-consumed-capacity TOTAL \
+  --query "{devolvidos: Count, lidos: ScannedCount, capacidade: ConsumedCapacity.CapacityUnits}"
+
+aws dynamodb scan --table-name "$DYNAMO_TABLE" \
+  --filter-expression "produto_id = :p" \
+  --expression-attribute-values '{":p": {"N": "5"}}' \
+  --return-consumed-capacity TOTAL \
+  --query "{devolvidos: Count, lidos: ScannedCount, capacidade: ConsumedCapacity.CapacityUnits}"
+```
+
+Os dois devolvem os mesmos itens, mas o Scan **leu** os 30. Com 30 itens a capacidade cobrada quase não muda; com 30 milhões, o Scan leria (e cobraria) 30 milhões.
+
+**No console:** a tabela → **Explore table items** → abra um item e veja o JSON. Depois faça uma **Query** com `produto_id = 5` e compare com um **Scan**.
+
+**Responda:**
+
+1. Os itens têm exatamente os mesmos atributos? O que o DynamoDB faria se um item novo chegasse com um atributo a mais?
+2. Por que o `ScannedCount` do Scan é 30 e o da Query é bem menor?
+3. Que pergunta de negócio essa tabela **não** responde bem? *(pense em "todas as reviews de um cliente")*
 
 ### Parte B — Busca vetorial com pgvector (20 min)
 
-O mesmo RDS da Atividade 2 vira um Vector DB com a extensão **pgvector**. O [`indexar_produtos.py`](scripts/indexar_produtos.py):
+O mesmo RDS da Atividade 2 vira um Vector DB com a extensão **pgvector**.
+
+**Antes:**
+
+```bash
+qc_psql
+```
+
+```sql
+\dx
+SELECT name, default_version, installed_version
+FROM pg_available_extensions WHERE name = 'vector';
+\dt
+
+-- Busca por palavra: a frase não existe em nenhuma descrição
+SELECT nome FROM t_produtos WHERE descricao ILIKE '%trabalhar em pé%';
+-- Só acha quando você acerta as palavras exatas
+SELECT nome FROM t_produtos WHERE descricao ILIKE '%em pé%';
+```
+
+A extensão `vector` está disponível no RDS, mas não instalada (`installed_version` vazio), e só existe a `t_produtos`. Saia com `\q`.
+
+**Execute:** o [`indexar_produtos.py`](scripts/indexar_produtos.py):
 
 1. Cria a extensão `vector`, a tabela `produtos_vetor` e um índice **HNSW**
 2. Baixa o CSV do S3
@@ -240,27 +407,73 @@ O mesmo RDS da Atividade 2 vira um Vector DB com a extensão **pgvector**. O [`i
 4. Demonstra busca por palavra × busca por significado × filtro + vetor
 
 ```bash
-# Perdeu a sessão? source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh
-python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate
-pip install --no-cache-dir boto3 "psycopg[binary]" pgvector fastembed
+# Sempre antes do pip: ativa o venv de /tmp (e recupera variáveis e o qc_psql se a sessão caiu)
+source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh
+pip install --no-cache-dir pgvector fastembed
 cd ~/aie-cloud/aulas/02-storage-bancos/lab/scripts
 python3 indexar_produtos.py
 ```
 
 Na primeira execução o modelo (~220 MB) é baixado para o `/tmp` (o `$HOME` do CloudShell tem só 1 GB).
 
-> **Por que embedding local e não um serviço?** O Learner Lab não libera o Amazon Bedrock. Em produção, o modelo de embedding seria do Bedrock (Titan/Cohere) — ou o **Bedrock Knowledge Bases** faria chunking, embeddings e índice de uma vez.
+> **Por que embedding local e não um serviço?** O Learner Lab não libera o Amazon Bedrock. Em produção, o modelo de embedding seria do Bedrock (Titan/Cohere), ou o **Bedrock Knowledge Bases** faria chunking, embeddings e índice de uma vez.
 
-**Busca no psql (opcional):**
+**Depois:**
 
 ```bash
-psql "$(aws secretsmanager get-secret-value --secret-id "$SECRET_ID" --query SecretString --output text)" \
-  -c "SELECT a.nome, b.nome AS parecido, ROUND((1 - (a.embedding <=> b.embedding))::numeric, 2) AS similaridade
-      FROM produtos_vetor a JOIN produtos_vetor b ON a.id <> b.id
-      WHERE a.id = 1 ORDER BY a.embedding <=> b.embedding LIMIT 3;"
+qc_psql
 ```
 
-**✅ Checkpoint L₃:** reviews no DynamoDB e a busca "algo para trabalhar em pé" trouxe a mesa de escritório sem nenhuma palavra em comum?
+```sql
+\dx
+\d produtos_vetor
+
+-- O "significado" de cada produto é uma lista de 384 números
+SELECT id, nome, vector_dims(embedding) AS dims,
+       (embedding::real[])[1:5] AS primeiros_5
+FROM produtos_vetor ORDER BY id LIMIT 3;
+
+-- Quanto espaço os vetores ocupam
+SELECT pg_size_pretty(pg_total_relation_size('t_produtos'))     AS t_produtos,
+       pg_size_pretty(pg_total_relation_size('produtos_vetor')) AS produtos_vetor;
+
+-- Os 3 produtos mais parecidos com a cadeira ergonômica (id 1)
+SELECT b.nome AS parecido,
+       ROUND((1 - (a.embedding <=> b.embedding))::numeric, 2) AS similaridade
+FROM produtos_vetor a JOIN produtos_vetor b ON a.id <> b.id
+WHERE a.id = 1
+ORDER BY a.embedding <=> b.embedding
+LIMIT 3;
+```
+
+**Responda:**
+
+1. O que significa o 3º número do vetor da cadeira, sozinho? *(nada: o significado está na posição do vetor inteiro em relação aos outros)*
+2. Por que a `produtos_vetor` ocupa bem mais espaço que a `t_produtos`, com os mesmos 20 produtos?
+3. A busca por `'%em pé%'` achou a mesa; a por `'%trabalhar em pé%'`, não. A vetorial achou com a frase inteira. O que isso diz sobre o tipo de pergunta que um agente recebe?
+
+### Parte C — Siga o produto 1 (10 min)
+
+O mesmo produto agora existe em vários lugares, cada um numa forma diferente. Encontre-o em todos:
+
+| Onde | Como olhar |
+|---|---|
+| CSV no CloudShell | `grep '^1,' ~/aie-cloud/aulas/02-storage-bancos/lab/data/produtos.csv` |
+| Objeto no S3 | `aws s3 cp "s3://$BUCKET_NAME/catalogo/produtos.csv" - \| grep '^1,'` |
+| Athena (sobre o S3) | `SELECT * FROM qc.produtos WHERE id = 1;` |
+| RDS, tabela transacional | no `qc_psql`: `SELECT * FROM t_produtos WHERE id = 1;` |
+| RDS, tabela vetorial | no `qc_psql`: `SELECT id, nome, vector_dims(embedding) FROM produtos_vetor WHERE id = 1;` |
+| DynamoDB, reviews | `aws dynamodb query --table-name "$DYNAMO_TABLE" --key-condition-expression "produto_id = :p" --expression-attribute-values '{":p": {"N": "1"}}' --query "Items[].texto.S"` |
+
+> As reviews são sorteadas entre os 20 produtos: o produto 1 pode ter várias ou nenhuma. Se vier vazio, troque o `1` por outro id.
+
+**Responda (em grupo):**
+
+1. Qual dessas cópias é a **fonte da verdade** do produto? Por quê?
+2. Se o preço da cadeira mudar no RDS, quais cópias ficam desatualizadas? Quem deveria atualizá-las?
+3. Por que a QC precisa de tantas formas do mesmo dado? Para cada uma, diga que pergunta ela responde melhor.
+
+**✅ Checkpoint L₃:** reviews no DynamoDB, a busca "algo para trabalhar em pé" trouxe a mesa de escritório sem nenhuma palavra em comum, e o grupo respondeu a Parte C?
 
 ---
 
@@ -289,7 +502,7 @@ cd ~/aie-cloud/aulas/02-storage-bancos/lab/terraform
 terraform destroy -auto-approve -var="db_password=$DB_PASSWORD"
 ```
 
-O destroy apaga bucket (mesmo com objetos: o módulo `modulos/bucket-s3` esvazia antes de apagar), RDS (sem snapshot final), segredos (sem janela de recuperação) e tabela DynamoDB. Leva ~5 min por causa do RDS.
+O destroy apaga bucket (mesmo com objetos: o módulo `modulos/bucket-s3` esvazia antes de apagar), RDS (sem snapshot final), segredos (sem janela de recuperação), tabela DynamoDB, workgroup do Athena e o banco `qc` do Glue, com a tabela que você criou. Leva ~5 min por causa do RDS.
 
 **Conferir:**
 - **Resource Groups & Tag Editor → Tag Editor** → região `us-east-1`, tipo *All supported resource types*, tag `aula = 2` → a busca deve voltar **vazia**
@@ -307,7 +520,8 @@ infrastructure/
   ├── storage.tf    (S3: catálogo, imagens, logs + lifecycle)
   ├── rds.tf        (t_produtos — transacional; produtos_vetor — pgvector)
   ├── secrets.tf    (Secrets Manager)
-  └── dynamodb.tf   (reviews — NoSQL)
+  ├── dynamodb.tf   (reviews — NoSQL)
+  └── athena.tf     (SQL sobre o S3 — schema-on-read)
 ```
 
 - **Aula 3** — a Lambda lê o catálogo do S3
@@ -327,7 +541,12 @@ infrastructure/
 | `AccessDenied` ao criar recurso | Serviço/tipo fora do que o Learner Lab libera | Confira `bash ../check_regions.sh`; use `us-east-1` |
 | `NoSuchKey` no script | O upload da Atividade 1 não aconteceu | Refaça o `aws s3 cp` e confira com `aws s3 ls` |
 | `ResourceNotFoundException` no Secrets Manager | `SECRET_ID` vazio ou de outro apply | `source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh` |
-| `psql` colado junto com o `dnf install` não mostra nada | O `dnf` consumiu a linha do `psql` colada logo depois | Rode a consulta `psql ...` de novo, sozinha (Atividade 2, Passo 3) |
+| `pip` avisa que `aws-sam-cli requires click==8.1.8` | O `pip install` rodou fora do venv e mexeu no Python do próprio CloudShell | `pip uninstall -y pgcli pgspecial cli_helpers psycopg` e `pip install "click==8.1.8"`; depois rode o `source` do `exportar-outputs.sh` e repita o `pip install` |
+| `qc_psql: command not found` | O atalho só existe depois do `source` | `source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh` |
+| `qc_psql` diz "Instale um cliente" | O pgcli não está no venv (o `/tmp` foi limpo) | `pip install --no-cache-dir pgcli` |
+| Athena: `Table already exists` | O `CREATE EXTERNAL TABLE` já rodou | Siga para os `SELECT`; para recriar, `DROP TABLE qc.produtos;` antes |
+| Athena: `No output location provided` | Workgroup errado selecionado (`primary`) | No canto superior direito, troque o **Workgroup** para `qc-aula02-xxxxxx` |
+| Athena volta 0 linhas | `LOCATION` com o nome do bucket errado ou sem a barra final | Confira com `echo $BUCKET_NAME`; o caminho termina em `/catalogo/` |
 | `extension "vector" is not available` | Versão do PostgreSQL sem pgvector | O lab usa PostgreSQL 16 (com pgvector). Confira `engine_version` em `rds.tf` |
 | `No space left on device` no CloudShell | `$HOME` de 1 GB cheio (providers, pip) | instale os pacotes no venv de `/tmp/venv-qc`, nunca no `$HOME`; `rm -rf ~/.cache/pip ~/.local/lib`; confira com `du -sh ~/.local ~/.cache ~/.terraform.d` e use o `TF_PLUGIN_CACHE_DIR` |
 | `ModuleNotFoundError` no Python | O venv de `/tmp` não está ativo ou foi apagado (a sessão reiniciou) | `python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate` e rode o `pip install` da atividade de novo |
