@@ -42,10 +42,11 @@ A camada de dados desta aula é consumida pelas funções da **Aula 3**, pelos s
 
 | Arquivo | Quando usar |
 |---------|-------------|
-| [lab/guia-lab.md](lab/guia-lab.md) | Durante a aula — abertura (fechar a Aula 1) + 4 atividades intercaladas |
-| [lab/exportar-outputs.sh](lab/exportar-outputs.sh) | Sempre que o CloudShell reiniciar: `source` recupera variáveis, senha do RDS e avisa se o IP mudou |
+| [lab/guia-lab.md](lab/guia-lab.md) | Durante a aula — abertura, 4 labs no ritmo comando → console → pergunta, canvas e destroy |
+| [lab/guia-aprofundamento.md](lab/guia-aprofundamento.md) | Depois da aula — o passo a passo detalhado de cada banco (antes/depois, ETag × MD5, Query × Scan, pgvector por dentro) |
+| [lab/qc.sh](lab/qc.sh) | `source` uma vez por sessão: variáveis, senha do RDS, venv e o comando `qc` dos labs |
 | [lab/terraform/](lab/terraform/) | Código IaC pronto (8 arquivos `.tf`) |
-| [lab/scripts/](lab/scripts/) | Scripts Python (popular RDS, popular DynamoDB, indexar com pgvector) |
+| [lab/scripts/](lab/scripts/) | Scripts Python que o `qc` chama (cargas, busca, consultas, sentimento) |
 | [lab/data/produtos.csv](lab/data/produtos.csv) | 20 produtos de exemplo da QC |
 | [exercicios.md](exercicios.md) | Após a aula — exercícios em 3 níveis (🟢/🟡/🔴) que compõem a entrega de grupo |
 

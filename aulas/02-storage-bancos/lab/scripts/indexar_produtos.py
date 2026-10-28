@@ -6,20 +6,20 @@ Passos:
 2. Baixa catalogo/produtos.csv do S3.
 3. Gera embeddings (MiniLM multilíngue, 384 dimensões) AQUI no CloudShell
    e grava cada produto já com o seu vetor.
-4. Demonstra: busca por palavra × busca por significado × filtro + vetor.
+
+A busca em si fica no buscar_produtos.py (`qc busca "texto"`), que mostra a
+mesma pergunta por palavra e pelo sentido, lado a lado.
 
 Por que os embeddings são gerados no CloudShell: o Learner Lab não libera o
 Amazon Bedrock. Em produção, o mesmo papel seria de um modelo de embedding
 no Bedrock (ou do Bedrock Knowledge Bases, que faz o RAG inteiro).
 
-Variáveis de ambiente:
-    SECRET_ID    — segredo com a connection string (terraform output -raw secret_id)
-    BUCKET_NAME  — bucket com catalogo/produtos.csv (terraform output -raw bucket_name)
-    (alternativa ao SECRET_ID: DB_HOST + DB_PASSWORD)
+Como rodar: `qc indexa` (o comando instala as dependências no venv).
 
-Dependências:
-    python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate   # fora do $HOME (1 GB)
-    pip install --no-cache-dir boto3 "psycopg[binary]" pgvector fastembed
+Variáveis de ambiente (o `source qc.sh` exporta):
+    SECRET_ID    — segredo com a connection string
+    BUCKET_NAME  — bucket com catalogo/produtos.csv
+    (alternativa ao SECRET_ID: DB_HOST + DB_PASSWORD)
 """
 
 import csv
@@ -99,35 +99,7 @@ def main():
             )
         print(f"✓ {len(rows)} produtos indexados")
 
-        # 5. Demonstrações
-        print("\n=== Busca por PALAVRA (ILIKE): 'trabalhar em pé' ===")
-        achou = conn.execute(
-            "SELECT nome FROM produtos_vetor WHERE descricao ILIKE %s OR nome ILIKE %s",
-            ("%trabalhar em pé%", "%trabalhar em pé%"),
-        ).fetchall()
-        print("  (nenhum resultado — nenhuma descrição tem essa frase)" if not achou
-              else "\n".join(f"  {n}" for (n,) in achou))
-
-        consulta = "algo para trabalhar em pé"
-        q = next(modelo.embed([consulta]))
-        print(f"\n=== Busca por SIGNIFICADO (pgvector): '{consulta}' ===")
-        for nome, desc, dist in conn.execute(
-            "SELECT nome, descricao, embedding <=> %s AS distancia "
-            "FROM produtos_vetor ORDER BY distancia LIMIT 3",
-            (q,),
-        ):
-            print(f"  [similaridade {1 - dist:.2f}] {nome} — {desc[:60]}...")
-
-        print("\n=== Filtro 'moveis' + significado 'conforto para as costas' ===")
-        q2 = next(modelo.embed(["conforto para as costas"]))
-        for nome, preco in conn.execute(
-            "SELECT nome, preco FROM produtos_vetor WHERE categoria = %s "
-            "ORDER BY embedding <=> %s LIMIT 3",
-            ("moveis", q2),
-        ):
-            print(f"  R$ {preco:>8} - {nome}")
-
-    print("\n✓ Pronto. Explore no psql: SELECT nome FROM produtos_vetor ORDER BY embedding <=> ... ")
+    print('\n✓ Pronto. Agora o desafio: qc busca "algo para trabalhar em pé"')
 
 
 if __name__ == "__main__":

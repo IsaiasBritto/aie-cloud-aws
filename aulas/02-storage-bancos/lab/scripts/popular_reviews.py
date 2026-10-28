@@ -9,9 +9,7 @@ Demonstra:
 Variáveis de ambiente:
     DYNAMO_TABLE — nome da tabela (terraform output -raw dynamodb_table)
 
-Dependências:
-    python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate   # fora do $HOME (1 GB)
-    pip install --no-cache-dir boto3
+Como rodar: `qc carga reviews` (o comando instala as dependências no venv /tmp/venv-qc).
 """
 
 import os
@@ -39,7 +37,7 @@ TEMPLATES = [
 def main():
     nome_tabela = os.environ.get("DYNAMO_TABLE")
     if not nome_tabela:
-        print("Exporte DYNAMO_TABLE:  export DYNAMO_TABLE=$(terraform output -raw dynamodb_table)")
+        print("DYNAMO_TABLE vazio. Rode: source ~/aie-cloud/aulas/02-storage-bancos/lab/qc.sh")
         sys.exit(1)
 
     tabela = boto3.resource("dynamodb").Table(nome_tabela)

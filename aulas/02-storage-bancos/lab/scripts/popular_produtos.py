@@ -12,9 +12,7 @@ Variáveis de ambiente:
     SECRET_ID    — nome do segredo (terraform output -raw secret_id)
     BUCKET_NAME  — bucket com catalogo/produtos.csv (terraform output -raw bucket_name)
 
-Dependências:
-    python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate   # fora do $HOME (1 GB)
-    pip install --no-cache-dir boto3 "psycopg[binary]"
+Como rodar: `qc carga produtos` (o comando instala as dependências no venv /tmp/venv-qc).
 """
 
 import csv

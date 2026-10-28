@@ -12,9 +12,9 @@
 |------|--------------|----------------|
 | Cabeçalho do grupo + distribuição do trabalho | ✅ Sim | 1 pt (Critério 4) |
 | 🟢 N1 — Exercícios 1.1, 1.2, 1.3, 1.4 (storage, tiers, relacional vs NoSQL, Secrets Manager e IAM) | ✅ Sim | 3 pts (Critério 1) |
-| 🟡 N2 — Exercícios 2.1 (matriz de dados QC + diagrama), 2.2 (plano de migração), 2.3 (particionamento no DynamoDB) | ✅ Sim | 3 pts (Critério 2) + 2 pts qualidade técnica (Critério 3) |
+| 🟡 N2 — Exercício 2.1 no [canvas de decisão](canvas-decisao.md) (9 domínios, com custo + diagrama), 2.2 (plano de migração), 2.3 (particionamento no DynamoDB) | ✅ Sim | 3 pts (Critério 2) + 2 pts qualidade técnica (Critério 3) |
 | 🔴 N3 — Exercícios 3.1 (busca híbrida: vetor + full-text), 3.2 (OLAP: proposta com Athena), 3.3 (benchmark) | 🎁 Bônus | até +2 pts extras |
-| Reflexão coletiva ao final | ✅ Sim | 1 pt (Critério 5) |
+| Reflexão coletiva ao final, com a linha do canvas de cada membro (um dado real do trabalho, anonimizado) | ✅ Sim | 1 pt (Critério 5) |
 | **Total** | | **10 pts** |
 
 Conteúdo dos exercícios: [aulas/02-storage-bancos/exercicios.md](../../aulas/02-storage-bancos/exercicios.md).
@@ -28,6 +28,7 @@ Nome: `entrega-grupo-NN-aula02.zip`.
 ```
 qc-grupo-NN-aula02/
 ├── entrega-grupo-aula02.md       # ⭐ documento principal (template em ../template-entrega-grupo.md)
+├── canvas-decisao.md             # N2: o canvas preenchido (template em canvas-decisao.md)
 ├── README.md                     # Como rodar o que foi entregue
 ├── diagramas/
 │   └── arquitetura-qc-aula02.png # Diagrama da camada de dados QC (do Ex 2.1)
@@ -59,7 +60,7 @@ Upload no Portal FIAP, tarefa "Entrega Aula 2".
 [Rubrica única](../rubrica.md). **Foco específico desta entrega:**
 
 - **N1:** justificar a escolha entre Object/File/Block e entre relacional/NoSQL/vector com base no caso de uso. Política IAM do Secrets Manager no nível de menor privilégio.
-- **N2:** a **matriz de decisão de dados** da QC (9 domínios) com serviço + SKU + justificativa, e o **diagrama atualizado** incluindo a camada de dados. Esta é a peça central do projeto integrado nesta aula.
+- **N2:** o **[canvas de decisão](canvas-decisao.md)** da QC (9 domínios), começado em sala no Bloco 4: para cada dado, a pergunta que ele responde, volume, consistência, quem lê, custo estimado na calculadora AWS e onde mora (serviço + justificativa). Mais o **diagrama atualizado** com a camada de dados. Esta é a peça central do projeto integrado nesta aula.
 - **N3 (bônus):** a **busca híbrida** (3.1, vetor + full-text no mesmo PostgreSQL) é a mais valorizada — é a base do RAG dos agentes.
 - **Reflexão:** discutir por que segregar segredos no Secrets Manager muda o modelo de segurança em uma plataforma agentic.
 

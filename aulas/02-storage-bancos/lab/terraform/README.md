@@ -23,8 +23,8 @@ export DB_PASSWORD=$(openssl rand -hex 16)   # RDS não aceita / @ " e espaço
 terraform init
 terraform apply -auto-approve -var="db_password=$DB_PASSWORD"
 
-# Sessão caiu? Recupera outputs, DB_PASSWORD e avisa se o IP mudou:
-source ../exportar-outputs.sh
+# Sessão caiu? Recupera outputs, DB_PASSWORD, o comando qc e avisa se o IP mudou:
+source ../qc.sh
 
 # ...labs...
 

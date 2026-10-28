@@ -1,5 +1,5 @@
 # Instale fora do $HOME (1 GB no CloudShell):
-#   python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate
+#   python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate   (o source do qc.sh já faz isso)
 #   pip install --no-cache-dir -r requirements.txt
 
 # AWS SDK (no CloudShell o boto3 já vem instalado; autentica pela LabRole)
@@ -11,3 +11,6 @@ pgvector>=0.3
 
 # Embeddings locais (MiniLM multilíngue, 384 dimensões) — Lab 3B
 fastembed>=0.4
+
+# Cliente interativo do PostgreSQL (`qc sql` sem argumentos)
+pgcli>=4.1

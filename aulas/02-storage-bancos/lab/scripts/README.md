@@ -1,45 +1,30 @@
 # Scripts Python — Aula 2
 
-Scripts que populam e exploram as bases provisionadas pelo Terraform da Aula 2. Todos usam o **boto3**, que no CloudShell autentica sozinho com a credencial da sessão do Learner Lab (LabRole) — nenhuma chave no código.
+Os scripts que o comando `qc` chama. Todos usam o **boto3**, que no CloudShell autentica sozinho com a credencial da sessão do Learner Lab: nenhuma chave no código.
 
-| Script | Atividade | O que faz |
-|--------|-----------|-----------|
-| [popular_produtos.py](popular_produtos.py) | L₂ | Lê a connection string do Secrets Manager e o CSV do S3; cria e popula `t_produtos` no RDS PostgreSQL |
-| [popular_reviews.py](popular_reviews.py) | L₃-A | Insere 30 reviews fictícias no DynamoDB e faz Query na partição `produto_id = 5` |
-| [indexar_produtos.py](indexar_produtos.py) | L₃-B | Gera embeddings (MiniLM, 384 dims) e cria a busca vetorial com pgvector no RDS |
+```bash
+source ~/aie-cloud/aulas/02-storage-bancos/lab/qc.sh   # uma vez por sessão
+qc                                                    # lista os comandos
+```
+
+| Comando | Script | Lab | O que faz |
+|---------|--------|-----|-----------|
+| `qc carga produtos` | [popular_produtos.py](popular_produtos.py) | 2 | Lê a connection string do Secrets Manager e o CSV do S3; cria e popula `t_produtos` no RDS |
+| `qc sql "SELECT ..."` | [consultar.py](consultar.py) | 2 | Roda uma consulta no RDS e mostra o resultado em colunas |
+| `qc carga reviews` | [popular_reviews.py](popular_reviews.py) | 3A | Grava 30 reviews fictícias no DynamoDB e consulta a partição `produto_id = 5` |
+| `qc indexa` | [indexar_produtos.py](indexar_produtos.py) | 3B | Gera embeddings (MiniLM, 384 dimensões) e cria `produtos_vetor` com índice HNSW no pgvector |
+| `qc busca "texto"` | [buscar_produtos.py](buscar_produtos.py) | 3B | A mesma pergunta por palavra e pelo sentido, lado a lado |
+| `qc sentimento` | [analisar_sentimento.py](analisar_sentimento.py) | demo | Sentimento das reviews com o Comprehend (conta do professor) ou por regras, sem IA (Learner Lab) |
 
 ## Dependências
 
+O `qc` instala no venv `/tmp/venv-qc`, na primeira vez, só o que cada comando precisa. Para instalar tudo de uma vez:
+
 ```bash
-# Fora do $HOME do CloudShell, que tem só 1 GB (o fastembed e o onnxruntime somam centenas de MB)
-python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate
+source /tmp/venv-qc/bin/activate   # o source do qc.sh já faz isso
 pip install --no-cache-dir -r requirements.txt
-# ou só o que cada atividade pede (ver guia)
 ```
 
-> `/tmp` é limpo quando a sessão reinicia. Se aparecer `ModuleNotFoundError`, recrie e ative o venv (`python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate`) e rode o `pip install` de novo.
-
-## Variáveis de ambiente
-
-| Script | Variáveis |
-|--------|-----------|
-| `popular_produtos.py` | `SECRET_ID`, `BUCKET_NAME` |
-| `popular_reviews.py` | `DYNAMO_TABLE` |
-| `indexar_produtos.py` | `SECRET_ID` (ou `DB_HOST` + `DB_PASSWORD`), `BUCKET_NAME` |
-
-Todas de uma vez, a partir dos outputs do Terraform (também ativa o venv de `/tmp/venv-qc` e recupera a `DB_PASSWORD`):
-
-```bash
-source ~/aie-cloud/aulas/02-storage-bancos/lab/exportar-outputs.sh
-```
-
-## Como executar
-
-```bash
-cd ~/aie-cloud/aulas/02-storage-bancos/lab/scripts
-python3 popular_produtos.py
-python3 popular_reviews.py
-python3 indexar_produtos.py
-```
+> O venv fica em `/tmp` porque o `$HOME` do CloudShell tem só 1 GB. O `/tmp` é limpo quando a sessão reinicia: o `qc` reinstala sozinho quando precisar.
 
 > **Lição de segurança:** a credencial nunca aparece no código. No CloudShell ela vem da sessão; numa Lambda ou tarefa ECS, da execution/task role; no seu notebook, do `aws configure` ou de SSO. O código é o mesmo nos três lugares.
