@@ -24,6 +24,7 @@ A API de catálogo desta aula é a **primeira ferramenta** dos agentes da QC: o 
 | Arquivo | Quando usar |
 |---------|-------------|
 | [lab/guia-lab.md](lab/guia-lab.md) | Durante a aula — 3 atividades + wrap-up |
+| [lab/qc.sh](lab/qc.sh) | `source` uma vez por sessão: cria o comando `qc` (publica, chama, container, compara) |
 | [lab/terraform/](lab/terraform/) | Bucket + Lambda + Function URL + ECR + ECS Fargate |
 | [lab/function/](lab/function/) | Código da Lambda: `v1-mock` e `v2-s3` |
 | [lab/docker/](lab/docker/) | A mesma API em FastAPI + Dockerfile |

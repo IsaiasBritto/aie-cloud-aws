@@ -46,7 +46,7 @@ def carregar_produtos() -> list[dict]:
 
 
 def listar_produtos(params: dict) -> dict:
-    """GET /produtos?categoria=moveis&nome=cadeira"""
+    """GET /produtos?categoria=moveis&nome=cadeira (no Lab 2: &preco_max=1500)"""
     logger.info("Endpoint /produtos chamado")
     try:
         produtos = carregar_produtos()
@@ -62,6 +62,8 @@ def listar_produtos(params: dict) -> dict:
         resultado = [p for p in resultado if p["categoria"].lower() == categoria]
     if nome:
         resultado = [p for p in resultado if nome in p["nome"].lower()]
+    # Lab 2: o filtro preco_max entra aqui
+    # ("tem cadeira boa pra coluna até R$ 1.500?" → ?categoria=moveis&preco_max=1500)
     return resposta({"total": len(resultado), "produtos": resultado})
 
 

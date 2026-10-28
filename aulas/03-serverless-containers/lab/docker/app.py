@@ -1,5 +1,6 @@
 """
-Versão FastAPI da API de produtos QC — mesmo comportamento da Lambda v2-s3.
+Versão FastAPI da API de produtos QC — a mesma ferramenta da Lambda v2-s3,
+já com o filtro preco_max do Lab 2.
 
 Empacotada num container Docker para rodar no Amazon ECS (Fargate). A credencial
 vem da task role da tarefa (no Learner Lab, a LabRole): o boto3 a encontra
@@ -35,7 +36,11 @@ def health():
 
 
 @app.get("/produtos")
-def listar_produtos(categoria: str | None = None, nome: str | None = None):
+def listar_produtos(
+    categoria: str | None = None,
+    nome: str | None = None,
+    preco_max: float | None = None,  # o FastAPI valida: "abc" vira erro 422, não 500
+):
     try:
         produtos = carregar_produtos()
     except Exception as e:  # noqa: BLE001
@@ -49,5 +54,7 @@ def listar_produtos(categoria: str | None = None, nome: str | None = None):
         resultado = [p for p in resultado if p["categoria"].lower() == cat]
     if nm:
         resultado = [p for p in resultado if nm in p["nome"].lower()]
+    if preco_max is not None:
+        resultado = [p for p in resultado if p["preco"] <= preco_max]
 
     return {"total": len(resultado), "produtos": resultado}

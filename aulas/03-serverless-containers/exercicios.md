@@ -13,15 +13,15 @@
 Esta é a **3ª entrega de grupo** da disciplina. Os 3 níveis são **divisão de trabalho dentro do grupo**:
 
 - 🟢 **Nível 1 — Básico:** quando usar serverless, IAM Role vs alternativas, cold start, Dockerfile review
-- 🟡 **Nível 2 — Intermediário:** segunda tool (cálculo de frete), observabilidade com CloudWatch, Fargate (restart, sizing e segredos)
-- 🔴 **Nível 3 — Avançado:** **bônus opcional** — spec de tool para agente, benchmark de carga, CI/CD com GitHub Actions + OIDC
+- 🟡 **Nível 2 — Intermediário:** canvas de compute da QC (5 cargas, com custo), segunda tool (cálculo de frete), observabilidade com CloudWatch
+- 🔴 **Nível 3 — Avançado:** **bônus opcional** — spec de tool para agente, benchmark de carga, CI/CD com GitHub Actions + OIDC, Fargate em produção (restart, sizing e segredos)
 
 **Mínimo obrigatório:** N1 + N2 cobertos. **N3 é bônus** (até +2 pts extras).
 
 ### Distribuição entre membros (sugerida)
 
 - Iniciantes: N1 (consolidação dos conceitos de serverless + IAM)
-- Intermediários: N2 (estender a Lambda da aula com nova tool e observabilidade)
+- Intermediários: N2 (o canvas de compute, uma nova tool e observabilidade)
 - Experientes: N3 (bônus) — design de tool de agente, benchmark, CI/CD
 
 > **Rodízio:** quem fez N1 nas Aulas 1-2 deve assumir N2 ou N3 agora. Vale Critério 4 da rubrica.
@@ -79,6 +79,8 @@ Para cada estratégia de credencial, marque **vulnerabilidade alta**, **média**
 
 **Pergunta adicional:** em quais estratégias **um vazamento do código no GitHub continua sendo problema**? Em quais não é? Por quê?
 
+**A policy mínima da ferramenta:** no lab, a função usa a LabRole, que pode muito mais que ler o catálogo (lembre do case Capital One). Escreva a policy IAM, em JSON, que a role da `buscar_produtos` teria em produção: só a ação e o recurso de que ela precisa. *(No Learner Lab não dá para criar roles: é exercício escrito.)*
+
 ---
 
 ### Exercício 1.3 — Cold start na prática
@@ -90,7 +92,7 @@ Faça **3 chamadas** à sua Lambda (do L₂), com intervalo de:
 - Chamada 3: **30 minutos depois** (provavelmente fria de novo)
 
 ```bash
-time curl -s -o /dev/null "${FUNC_URL}produtos"
+time curl -s -o /dev/null "${FUNCTION_URL}produtos"
 ```
 
 Confirme no CloudWatch: o log da chamada fria tem a linha `REPORT ... Init Duration: ... ms`; a quente, não.
@@ -135,7 +137,21 @@ Liste **5 problemas** (segurança, tamanho, eficiência, boas práticas) e propo
 
 ## 🟡 Nível 2 — Intermediário: Decisões de Design + IaC
 
-### Exercício 2.1 — Segunda tool para o agente: cálculo de frete
+### Exercício 2.1 — Canvas de compute da QC
+
+Comece em sala, no Bloco 4, e termine no grupo. Use o template [canvas-compute.md](../../entregas/entrega-03/canvas-compute.md): uma linha por carga de trabalho, com as colunas que decidem onde ela roda.
+
+a) Preencha as **5 cargas da QC**: busca no catálogo (a linha de exemplo), cálculo de frete, geração noturna das notas fiscais, recomendação de produtos e o checkout.
+
+b) Para cada carga, estime o **custo por mês** na [calculadora AWS](https://calculator.aws) (região `us-east-1`) na casa que vocês escolheram, e diga o que custaria na outra casa.
+
+c) Para cada carga, escreva **o que ela pode ler** (a identidade) e **o que vocês não usariam**, com uma frase de justificativa.
+
+d) Cada membro acrescenta **uma linha com uma carga real do próprio trabalho**, anonimizada (sem nomes de clientes, sistemas ou números internos). Essa linha entra também na reflexão.
+
+---
+
+### Exercício 2.2 — Segunda tool para o agente: cálculo de frete
 
 - Input: CEP origem, CEP destino, peso (kg)
 - Output: valor em R$ + prazo estimado
@@ -152,7 +168,7 @@ e) Reflexão: quando você separaria funções (deploy, permissão, escala, cust
 
 ---
 
-### Exercício 2.2 — Observabilidade com CloudWatch
+### Exercício 2.3 — Observabilidade com CloudWatch
 
 A Lambda da Aula 3 já manda logs para o CloudWatch (log group com 7 dias de retenção).
 
@@ -173,23 +189,7 @@ e) Para um sistema multiagente em produção, qual a estratégia de logs/métric
 
 ---
 
-### Exercício 2.3 — Fargate: restart, sizing e segredos
-
-O lab subiu uma tarefa Fargate **básica**. Evolua o `containers.tf`:
-
-a) **Serviço × tarefa avulsa** — o lab usa um **serviço** (o ECS recria a tarefa se ela cair). Crie uma variante para um **job batch** da QC (recalcular recomendações à noite e terminar): `aws_scheduler_schedule` disparando `RunTask`. Quando usar serviço e quando usar tarefa agendada?
-
-b) **Right-sizing + custo** — o lab usa 0,25 vCPU / 0,5 GB. Suba uma variante com 1 vCPU / 2 GB. No [AWS Pricing Calculator](https://calculator.aws), estime o custo/mês de **1 tarefa 24/7** em cada tamanho e compare com a Lambda equivalente para 1M chamadas/mês.
-
-c) **Segredo na task definition** — injete um valor do Secrets Manager com o bloco `secrets` do container (`valueFrom` = ARN do segredo) em vez de `environment`. Mostre a diferença com `aws ecs describe-task-definition`: o valor aparece?
-
-d) **Escala** — o serviço do lab tem `desired_count = 1` e nenhum auto scaling. O que acontece num pico de Black Friday? Escreva o `aws_appautoscaling_target` + `aws_appautoscaling_policy` (target tracking em CPU 60%) e explique por que, sem load balancer, escalar não basta.
-
-e) **Reflexão:** para a QC, quais workloads você levaria para **Fargate** e quais para **Lambda**? Considere custo parado, HTTPS, escala e simplicidade operacional.
-
----
-
-## 🔴 Nível 3 — Avançado: Tool de Agente + Benchmark + CI/CD
+## 🔴 Nível 3 — Avançado: Tool de Agente + Benchmark + CI/CD + Fargate em produção
 
 ### Exercício 3.1 — A Lambda como tool de um agente (conceitual + código)
 
@@ -203,6 +203,7 @@ a) Escreva a **descrição completa** da tool no formato de tool use (Anthropic)
     "type": "object",
     "properties": {
       "categoria": {"type": "string", "description": "..."},
+      "preco_max": {"type": "number", "description": "..."},
       "nome": {"type": "string", "description": "..."}
     }
   }
@@ -230,7 +231,7 @@ No CloudShell, instale o Apache Bench e dispare carga na sua Lambda:
 
 ```bash
 sudo dnf install -y httpd-tools
-ab -n 1000 -c 50 "${FUNC_URL}produtos?categoria=moveis"
+ab -n 1000 -c 50 "${FUNCTION_URL}produtos?categoria=moveis"
 ```
 
 **Reporte:** latência média, p50, p95, p99, throughput (req/s), taxa de erro e custo (Lambda x86: US$ 0,20 por 1M requisições + US$ 0,0000166667 por GB-s).
@@ -269,6 +270,22 @@ d) Faz `aws lambda update-function-code` automaticamente
 
 ---
 
+### Exercício 3.4 — Fargate em produção: restart, sizing e segredos
+
+O lab subiu uma tarefa Fargate **básica**. Evolua o `containers.tf`:
+
+a) **Serviço × tarefa avulsa** — o lab usa um **serviço** (o ECS recria a tarefa se ela cair). Crie uma variante para um **job batch** da QC (recalcular recomendações à noite e terminar): `aws_scheduler_schedule` disparando `RunTask`. Quando usar serviço e quando usar tarefa agendada?
+
+b) **Right-sizing + custo** — o lab usa 0,25 vCPU / 0,5 GB. Suba uma variante com 1 vCPU / 2 GB. No [AWS Pricing Calculator](https://calculator.aws), estime o custo/mês de **1 tarefa 24/7** em cada tamanho e compare com a Lambda equivalente para 1M chamadas/mês.
+
+c) **Segredo na task definition** — injete um valor do Secrets Manager com o bloco `secrets` do container (`valueFrom` = ARN do segredo) em vez de `environment`. Mostre a diferença com `aws ecs describe-task-definition`: o valor aparece?
+
+d) **Escala** — o serviço do lab tem `desired_count = 1` e nenhum auto scaling. O que acontece num pico de Black Friday? Escreva o `aws_appautoscaling_target` + `aws_appautoscaling_policy` (target tracking em CPU 60%) e explique por que, sem load balancer, escalar não basta.
+
+e) **Reflexão:** para a QC, quais workloads você levaria para **Fargate** e quais para **Lambda**? Considere custo parado, HTTPS, escala e simplicidade operacional.
+
+---
+
 ## Critérios de entrega
 
 A entrega é **um ZIP por grupo** (`entrega-grupo-NN-aula03.zip`) no Portal FIAP. Estrutura completa em [entregas/entrega-03/INSTRUCOES.md](../../entregas/entrega-03/INSTRUCOES.md).
@@ -277,9 +294,9 @@ A entrega é **um ZIP por grupo** (`entrega-grupo-NN-aula03.zip`) no Portal FIAP
 |------|--------------|----------------|
 | Cabeçalho do grupo + distribuição do trabalho | ✅ Sim | 1 pt (Critério 4) |
 | 🟢 N1 — Exercícios 1.1 (quando usar serverless), 1.2 (IAM Role vs alternativas), 1.3 (cold start), 1.4 (Dockerfile review) | ✅ Sim | 3 pts (Critério 1) |
-| 🟡 N2 — 2.1 (segunda tool: cálculo de frete), 2.2 (CloudWatch), 2.3 (Fargate: restart/sizing/secrets) | ✅ Sim | 3 pts (Critério 2) + 2 pts qualidade técnica (Critério 3) |
-| 🔴 N3 — 3.1 (spec de tool de agente), 3.2 (benchmark), 3.3 (CI/CD GitHub Actions + OIDC) | 🎁 Bônus | até +2 pts extras |
-| Reflexão coletiva ao final | ✅ Sim | 1 pt (Critério 5) |
+| 🟡 N2 — 2.1 [canvas de compute](../../entregas/entrega-03/canvas-compute.md) (5 cargas, com custo), 2.2 (segunda tool: cálculo de frete), 2.3 (CloudWatch) | ✅ Sim | 3 pts (Critério 2) + 2 pts qualidade técnica (Critério 3) |
+| 🔴 N3 — 3.1 (spec de tool de agente), 3.2 (benchmark), 3.3 (CI/CD GitHub Actions + OIDC), 3.4 (Fargate em produção) | 🎁 Bônus | até +2 pts extras |
+| Reflexão coletiva ao final, com a linha do canvas de cada membro (uma carga real do trabalho, anonimizada) | ✅ Sim | 1 pt (Critério 5) |
 | **Total da entrega** | | **10 pts** (10% da nota final) |
 
 **Prazo:** 1 dia antes da Aula 4.
