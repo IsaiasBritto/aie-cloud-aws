@@ -27,10 +27,11 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "qc" {
   }
 }
 
-# Os 3 "containers" viram prefixos. No S3 não existe pasta: o objeto vazio
+# Os "containers" viram prefixos. No S3 não existe pasta: o objeto vazio
 # terminado em "/" só serve para o prefixo aparecer no console.
+# raw/ e curated/ são as camadas do data lake do Lab 1B (fora do lifecycle de logs/).
 resource "aws_s3_object" "prefixos" {
-  for_each = toset(["catalogo/", "imagens/", "logs/"])
+  for_each = toset(["catalogo/", "imagens/", "logs/", "raw/", "curated/"])
   bucket   = module.bucket_qc.nome
   key      = each.value
   content  = ""

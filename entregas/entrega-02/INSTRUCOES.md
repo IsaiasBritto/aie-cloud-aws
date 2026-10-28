@@ -13,7 +13,7 @@
 | Cabeçalho do grupo + distribuição do trabalho | ✅ Sim | 1 pt (Critério 4) |
 | 🟢 N1 — Exercícios 1.1, 1.2, 1.3, 1.4 (storage, tiers, relacional vs NoSQL, Secrets Manager e IAM) | ✅ Sim | 3 pts (Critério 1) |
 | 🟡 N2 — Exercício 2.1 no [canvas de decisão](canvas-decisao.md) (9 domínios, com custo + diagrama), 2.2 (plano de migração), 2.3 (particionamento no DynamoDB) | ✅ Sim | 3 pts (Critério 2) + 2 pts qualidade técnica (Critério 3) |
-| 🔴 N3 — Exercícios 3.1 (busca híbrida: vetor + full-text), 3.2 (OLAP: proposta com Athena), 3.3 (benchmark) | 🎁 Bônus | até +2 pts extras |
+| 🔴 N3 — Exercícios 3.1 (busca híbrida: vetor + full-text), 3.2 (o data lake da QC em camadas), 3.3 (benchmark) | 🎁 Bônus | até +2 pts extras |
 | Reflexão coletiva ao final, com a linha do canvas de cada membro (um dado real do trabalho, anonimizado) | ✅ Sim | 1 pt (Critério 5) |
 | **Total** | | **10 pts** |
 

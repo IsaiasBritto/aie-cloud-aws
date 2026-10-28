@@ -17,12 +17,14 @@ A aula responde a três perguntas que um cliente faz ao agente da Quantum Commer
 | "O que os clientes acham dessa cadeira?" | Reviews: texto livre, lido por produto | DynamoDB | 3A |
 | "Me mostra a nota fiscal da minha compra" | Arquivos: não mudam, guardados por anos | S3 + lifecycle | 1 |
 
+E uma pergunta que não é do cliente, mas do negócio: **"quanto vendemos de cadeiras em setembro?"**. Ela não se responde no banco do dia a dia, e sim no data lake (Lab 1B).
+
 ```
 00:00  Abertura — limpeza da Aula 1 + terraform apply                ~15 min
-00:15  Bloco 1 — Arquivos: quanto custa guardar     · Lab 1          ~45 min
-01:00  Bloco 2 — Dado que não pode errar            · Lab 2          ~50 min
-01:50  Intervalo                                                      15 min
-02:05  Bloco 3 — Forma e sentido                    · Labs 3A e 3B   ~70 min
+00:15  Bloco 1 — Arquivos: guardar e consultar     · Labs 1 e 1B    ~60 min
+01:15  Bloco 2 — Dado que não pode errar            · Lab 2          ~50 min
+02:05  Intervalo                                                      15 min
+02:20  Bloco 3 — Forma e sentido                    · Labs 3A e 3B   ~55 min
 03:15  Bloco 4 — A decisão: canvas em grupo + destroy                ~60 min
 ```
 
@@ -130,6 +132,35 @@ Repare no **Data scanned**: o Athena cobra pelo volume lido (US$ 5 por TB). A "t
 
 ---
 
+## Lab 1B — O lake da QC: o mesmo dado, dois formatos (Bloco 1, ~8 min)
+
+O Lab 1 já é um data lake pequeno: o arquivo fica no S3 e o Athena consulta sem carregar nada em banco. Aqui o lake ganha as duas camadas e uma conta de custo.
+
+**Comandos**
+
+```bash
+qc lake gera      # ~200 mil pedidos sintéticos → raw/pedidos/ + tabela qc.pedidos_raw (CSV)
+qc lake cura      # CTAS no Athena: o mesmo dado em Parquet, particionado por mês → curated/pedidos/
+qc lake compara   # a mesma pergunta nas duas tabelas: resultado, bytes lidos e o custo em 1 TB
+```
+
+- O `qc lake gera` cria cerca de 200 mil pedidos de 12 meses (semente fixa: todos os grupos geram o mesmo arquivo, ~13 MB), sobe em `raw/pedidos/` e cria a tabela `qc.pedidos_raw` sobre o CSV, como o `CREATE EXTERNAL TABLE` do Lab 1.
+- O `qc lake cura` roda uma consulta **CTAS** (`CREATE TABLE ... AS SELECT`) no próprio Athena: ele lê o CSV e grava o mesmo dado em **Parquet** (colunar e comprimido), com uma pasta por mês (`mes=2026-09/`). Nenhum serviço novo.
+- O `qc lake compara` faz a pergunta "faturamento por categoria em setembro" nas duas tabelas e mostra o resultado, os bytes lidos e a projeção para um CSV de 1 TB.
+
+**Console**
+
+1. **S3 → `qc-aula02-xxxxxx` → `raw/pedidos/`**: um CSV. Depois, **`curated/pedidos/`**: uma pasta por mês, com arquivos bem menores.
+2. **Athena → Recent queries**: a coluna **Data scanned** das duas consultas do `qc lake compara`. O resultado é o mesmo; o volume lido, não.
+
+> No lab a fatura é de centavos: o Athena cobra no mínimo 10 MB por consulta. A conta que importa é a de TB, no slide seguinte do deck.
+
+**Pergunta para o grupo:** quem na empresa de vocês decide o formato dos arquivos do lake? E quem recebe a fatura de cada consulta?
+
+**✅ Checkpoint:** o `qc lake compara` mostrou o mesmo resultado nas duas camadas, com o Parquet lendo muito menos?
+
+---
+
 ## Lab 2 — Onde está a senha e o que chegou no banco (Bloco 2, ~25 min)
 
 **Comando**
@@ -181,7 +212,7 @@ qc carga reviews
 **Console**
 
 1. **DynamoDB → Tables → `qc-aula02-xxxxxx-reviews` → Explore table items**: os 30 itens, cada um com `produto_id` (chave de partição) e `review_id`.
-2. **PartiQL editor** (menu à esquerda). O nome da tabela vai entre aspas duplas:
+2. **Opcional (para quem terminar antes): PartiQL editor** (menu à esquerda). O nome da tabela vai entre aspas duplas:
 
 ```sql
 SELECT * FROM "qc-aula02-xxxxxx-reviews" WHERE produto_id = 5
@@ -189,7 +220,7 @@ SELECT * FROM "qc-aula02-xxxxxx-reviews" WHERE produto_id = 5
 
 **Pergunta para o grupo:** a consulta por produto é rápida porque `produto_id` é a chave. E "as 5 piores reviews da loja toda"? A tabela responde bem a essa pergunta? O que isso diz sobre escolher a chave antes de gravar?
 
-**✅ Checkpoint:** as reviews do produto 5 apareceram no PartiQL editor?
+**✅ Checkpoint:** os 30 itens apareceram no Explore table items, com `produto_id` e `review_id`?
 
 ---
 
@@ -221,15 +252,9 @@ Cada resultado mostra, lado a lado, a busca por **palavra** (a frase no nome ou 
 
 ---
 
-## Demo do professor — Sentimento: regra ou IA? (~5 min)
+## Sentimento das reviews: na Aula 4
 
-O Learner Lab nega o Amazon Comprehend, inclusive para a LabRole. Por isso, esta parte é uma demonstração na conta do professor, sobre as mesmas reviews:
-
-```bash
-qc sentimento
-```
-
-O script grava em cada review o `sentimento` e a `fonte`: `comprehend` na conta do professor, ou `regras-locais` (palavras-chave, sem IA) no Learner Lab. A comparação aparece no **Explore table items**.
+A análise de sentimento das reviews (regra × IA) saiu desta aula: ela é o tema da Aula 4, de serviços cognitivos. O comando `qc sentimento` continua disponível para quem quiser testar as regras locais com as reviews do Lab 3A.
 
 ---
 
@@ -281,6 +306,9 @@ Leva ~5 min por causa do RDS. Depois, confira em **Resource Groups & Tag Editor 
 | Athena: `No output location provided` | Troque o **Workgroup** (canto superior direito) para `qc-aula02-xxxxxx` |
 | Athena: `Table already exists` | Siga para os `SELECT`; para recriar, `DROP TABLE qc.produtos;` |
 | Athena volta 0 linhas | `LOCATION` com o bucket errado ou sem a `/` final |
+| `qc lake cura`: `HIVE_PATH_ALREADY_EXISTS` ou `Table already exists` | Rode `qc lake cura` de novo: ele apaga a tabela e a pasta `curated/pedidos/` antes do CTAS |
+| `qc lake cura`: "remove the 'external_location' property" | O workgroup está impondo o local de resultados. `git -C ~/aie-cloud pull` e `terraform apply` de novo (o workgroup do lab não impõe) |
+| `qc lake compara`: `Table qc.pedidos_curated does not exist` | Faltou o `qc lake cura` |
 | `pip` avisa que `aws-sam-cli requires click==8.1.8` | Algum `pip` rodou fora do venv: `pip install "click==8.1.8"` e rode o `source` de novo |
 | `No space left on device` | `$HOME` de 1 GB cheio: `rm -rf ~/.cache/pip ~/.local/lib` (o `qc` instala tudo em `/tmp`) |
 

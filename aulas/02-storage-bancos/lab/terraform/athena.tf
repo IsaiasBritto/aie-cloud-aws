@@ -16,7 +16,10 @@ resource "aws_athena_workgroup" "qc" {
   force_destroy = true # o destroy apaga o workgroup mesmo com consultas salvas
 
   configuration {
-    enforce_workgroup_configuration = true
+    # false: com o local de resultados IMPOSTO pelo workgroup, o Athena recusa CTAS
+    # com external_location, e o Lab 1B grava a camada curated/ num caminho próprio.
+    # O output_location abaixo continua sendo o padrão de quem usa este workgroup.
+    enforce_workgroup_configuration = false
 
     result_configuration {
       output_location = "s3://${module.bucket_qc.nome}/athena/"

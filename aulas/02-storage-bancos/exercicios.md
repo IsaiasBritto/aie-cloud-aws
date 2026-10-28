@@ -14,7 +14,7 @@ Esta é a **2ª entrega de grupo** da disciplina. Os 3 níveis são **divisão d
 
 - 🟢 **Nível 1 — Básico:** consolida storage, classes do S3, relacional vs NoSQL, IAM do Secrets Manager
 - 🟡 **Nível 2 — Intermediário:** modelagem de dados QC + plano de migração + particionamento DynamoDB
-- 🔴 **Nível 3 — Avançado:** **bônus opcional** — busca híbrida (vetor + full-text), OLAP com Athena (proposta), benchmark
+- 🔴 **Nível 3 — Avançado:** **bônus opcional** — busca híbrida (vetor + full-text), o data lake da QC em camadas, benchmark
 
 **Mínimo obrigatório:** N1 + N2 cobertos. **N3 é bônus** (até +2 pts extras).
 
@@ -218,7 +218,7 @@ d) Estime: um produto com 50.000 reviews de ~400 bytes. Quanto ocupa a partiçã
 
 ---
 
-## 🔴 Nível 3 — Avançado: Busca híbrida, OLAP e benchmark
+## 🔴 Nível 3 — Avançado: Busca híbrida, data lake e benchmark
 
 ### Exercício 3.1 — Busca híbrida: vetor + full-text no mesmo PostgreSQL
 
@@ -261,30 +261,28 @@ SELECT id FROM produtos_vetor ORDER BY embedding <=> %s LIMIT 10;
 
 ---
 
-### Exercício 3.2 — OLAP com Athena: proposta (sem executar)
+### Exercício 3.2 — O data lake da QC em camadas
 
-> O Learner Lab não libera o Athena — este exercício é de **arquitetura**, não de execução.
+O Lab 1B mostrou duas camadas de um só dado (`raw/` e `curated/`). A QC quer analisar 3 anos de pedidos, cliques e logs de compra (dezenas de TB) sem carregar tudo num data warehouse.
 
-A QC quer analisar 3 anos de logs de compras (dezenas de TB) sem carregar tudo num data warehouse.
-
-1. **Desenhe** o fluxo: logs no S3 (`logs/`) → catálogo no **AWS Glue Data Catalog** → SQL no **Amazon Athena** → painel no **Amazon QuickSight**.
-2. **Escreva** a DDL e a consulta que você rodaria (formato e particionamento são a parte importante):
+1. **Desenhe** as camadas do lake da QC: o que entra em `raw/` (de onde vem cada dado), o que vira `curated/` (limpo, em Parquet, particionado por quê?) e quem consome cada camada (analista no Athena, painel, agente). Para cada camada, diga **quem pode ler** e por quê.
+2. **Escreva** a DDL e a consulta de uma tabela da camada curated (formato e particionamento são a parte importante):
 
 ```sql
-CREATE EXTERNAL TABLE logs_compras (
+CREATE EXTERNAL TABLE qc.logs_compras (
   pedido_id string, produto_id int, valor decimal(10,2), ts timestamp
 )
 PARTITIONED BY (ano int, mes int)
 STORED AS PARQUET
-LOCATION 's3://<bucket>/logs/compras/';
+LOCATION 's3://<bucket>/curated/logs_compras/';
 
 SELECT mes, COUNT(*) AS pedidos, SUM(valor) AS receita
-FROM logs_compras WHERE ano = 2026
+FROM qc.logs_compras WHERE ano = 2026
 GROUP BY mes ORDER BY mes;
 ```
 
-3. **Calcule:** o Athena cobra por TB lido (~US$ 5/TB). Quanto custa a consulta acima sobre 30 TB de CSV sem partição? E sobre o mesmo dado em Parquet particionado por ano/mês, sabendo que o Parquet costuma comprimir ~5× e a consulta só lê 1 ano de 3?
-4. **Compare** com o Amazon Redshift Serverless: quando o warehouse passa a valer a pena?
+3. **Calcule:** o Athena cobra US$ 5 por TB lido. Quanto custa a consulta acima sobre 30 TB de CSV sem partição? E sobre o mesmo dado em Parquet particionado por ano/mês, usando a razão de bytes lidos que o seu `qc lake compara` mostrou e sabendo que a consulta só lê 1 ano de 3? E com 100 consultas por dia?
+4. **Compare** com o Amazon Redshift Serverless e com o lakehouse (tabelas Iceberg, como no case Junto Seguros): quando cada um passa a valer a pena?
 
 ---
 
@@ -317,7 +315,7 @@ A entrega é **um ZIP por grupo** (`entrega-grupo-NN-aula02.zip`) no Portal FIAP
 | Cabeçalho do grupo + distribuição do trabalho | ✅ Sim | 1 pt (Critério 4) |
 | 🟢 N1 — Exercícios 1.1, 1.2, 1.3, 1.4 respondidos | ✅ Sim | 3 pts (Critério 1) |
 | 🟡 N2 — 2.1 (matriz + diagrama), 2.2 (migração), 2.3 (particionamento DynamoDB) | ✅ Sim | 3 pts (Critério 2) + 2 pts qualidade técnica (Critério 3) |
-| 🔴 N3 — 3.1 (busca híbrida: vetor + full-text), 3.2 (OLAP: proposta com Athena), 3.3 (benchmark) | 🎁 Bônus | até +2 pts extras |
+| 🔴 N3 — 3.1 (busca híbrida: vetor + full-text), 3.2 (o data lake da QC em camadas), 3.3 (benchmark) | 🎁 Bônus | até +2 pts extras |
 | Reflexão coletiva ao final | ✅ Sim | 1 pt (Critério 5) |
 | **Total da entrega** | | **10 pts** (10% da nota final) |
 

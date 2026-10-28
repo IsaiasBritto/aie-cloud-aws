@@ -87,7 +87,8 @@ _qc_precisa() {
   done
 }
 
-_qc_athena() {
+# Roda um SQL no Athena, espera terminar e devolve o id da consulta
+_qc_athena_exec() {
   local id st
   id="$(aws athena start-query-execution --work-group "$ATHENA_WORKGROUP" \
           --query-execution-context Database=qc --query-string "$1" \
@@ -103,10 +104,105 @@ _qc_athena() {
       --query QueryExecution.Status.StateChangeReason --output text >&2
     return 1
   fi
-  aws athena get-query-results --query-execution-id "$id" \
-    --query 'ResultSet.Rows[].[Data[].VarCharValue]' --output text | column -t -s $'\t'
-  echo "(lidos: $(aws athena get-query-execution --query-execution-id "$id" \
-    --query QueryExecution.Statistics.DataScannedInBytes --output text) bytes)"
+  printf '%s' "$id"
+}
+
+_qc_athena_bytes() {
+  aws athena get-query-execution --query-execution-id "$1" \
+    --query QueryExecution.Statistics.DataScannedInBytes --output text
+}
+
+_qc_athena_linhas() {
+  aws athena get-query-results --query-execution-id "$1" \
+    --query 'ResultSet.Rows[].[Data[].VarCharValue]' --output text |
+    if command -v column >/dev/null; then column -t -s $'\t'; else cat; fi
+}
+
+_qc_athena() {
+  local id
+  id="$(_qc_athena_exec "$1")" || return 1
+  _qc_athena_linhas "$id"
+  echo "(lidos: $(_qc_athena_bytes "$id") bytes)"
+}
+
+# ---------------------------------------------------------------------------
+# Lab 1B — o lake da QC: raw/ (CSV) → curated/ (Parquet por mês)
+# ---------------------------------------------------------------------------
+_QC_PERGUNTA_LAKE="SELECT categoria, ROUND(SUM(valor), 2) AS faturamento FROM %s WHERE mes = '2026-09' GROUP BY categoria ORDER BY faturamento DESC"
+
+_qc_lake_gera() {
+  _qc_precisa BUCKET_NAME ATHENA_WORKGROUP || return 1
+  local csv=/tmp/qc-pedidos.csv
+  python3 "$QC_LAB/scripts/gerar_pedidos.py" "$csv" || return 1
+  echo "→ Subindo para s3://$BUCKET_NAME/raw/pedidos/ (camada bruta)"
+  aws s3 rm "s3://$BUCKET_NAME/raw/pedidos/" --recursive --only-show-errors
+  aws s3 cp "$csv" "s3://$BUCKET_NAME/raw/pedidos/pedidos.csv" --only-show-errors || return 1
+  echo "→ Criando a tabela qc.pedidos_raw sobre o CSV (schema-on-read)"
+  _qc_athena_exec "DROP TABLE IF EXISTS qc.pedidos_raw" >/dev/null || return 1
+  _qc_athena_exec "CREATE EXTERNAL TABLE qc.pedidos_raw (
+      pedido_id string, data string, cliente_id int, produto_id int, categoria string,
+      uf string, canal string, quantidade int, valor double, mes string)
+    ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+    LOCATION 's3://$BUCKET_NAME/raw/pedidos/'
+    TBLPROPERTIES ('skip.header.line.count' = '1')" >/dev/null || return 1
+  echo "✓ Camada raw pronta. Agora: qc lake cura"
+  echo "  Console: S3 → $BUCKET_NAME → raw/pedidos/ (um CSV, veja o tamanho)"
+}
+
+_qc_lake_cura() {
+  _qc_precisa BUCKET_NAME ATHENA_WORKGROUP || return 1
+  echo "→ CTAS no Athena: o mesmo dado em Parquet, particionado por mês (~30 s)"
+  _qc_athena_exec "DROP TABLE IF EXISTS qc.pedidos_curated" >/dev/null || return 1
+  aws s3 rm "s3://$BUCKET_NAME/curated/pedidos/" --recursive --only-show-errors
+  _qc_athena_exec "CREATE TABLE qc.pedidos_curated
+    WITH (format = 'PARQUET', write_compression = 'SNAPPY',
+          external_location = 's3://$BUCKET_NAME/curated/pedidos/',
+          partitioned_by = ARRAY['mes'])
+    AS SELECT pedido_id, data, cliente_id, produto_id, categoria, uf, canal,
+              quantidade, valor, mes
+       FROM qc.pedidos_raw" >/dev/null || return 1
+  echo "✓ Camada curated pronta: uma pasta por mês"
+  aws s3 ls "s3://$BUCKET_NAME/curated/pedidos/" | sed 's/^/  /'
+  echo
+  echo "  raw/     : $(aws s3 ls "s3://$BUCKET_NAME/raw/pedidos/" --recursive --summarize --human-readable | awk '/Total Size/ {print $3, $4}')"
+  echo "  curated/ : $(aws s3 ls "s3://$BUCKET_NAME/curated/pedidos/" --recursive --summarize --human-readable | awk '/Total Size/ {print $3, $4}')"
+  echo "Agora: qc lake compara"
+}
+
+_qc_lake_compara() {
+  _qc_precisa ATHENA_WORKGROUP || return 1
+  local id_raw id_cur b_raw b_cur
+  echo "Pergunta: faturamento por categoria em setembro de 2026"
+  echo
+  id_raw="$(_qc_athena_exec "$(printf "$_QC_PERGUNTA_LAKE" qc.pedidos_raw)")" || return 1
+  id_cur="$(_qc_athena_exec "$(printf "$_QC_PERGUNTA_LAKE" qc.pedidos_curated)")" || return 1
+  b_raw="$(_qc_athena_bytes "$id_raw")"; b_cur="$(_qc_athena_bytes "$id_cur")"
+  _qc_athena_linhas "$id_cur"
+  echo
+  if [ "$(_qc_athena_linhas "$id_raw")" = "$(_qc_athena_linhas "$id_cur")" ]; then
+    echo "Mesmo resultado nas duas camadas."
+  else
+    echo "ATENÇÃO: os resultados diferem. Rode de novo: qc lake gera && qc lake cura" >&2
+  fi
+  python3 - "$b_raw" "$b_cur" <<'PY'
+import sys
+raw, cur = (int(x) for x in sys.argv[1:3])
+def fmt(b):
+    return f"{b/1024/1024:.2f} MB" if b >= 1024 * 1024 else f"{b/1024:.1f} KB"
+print()
+print(f"  raw/ (CSV)          leu {fmt(raw):>10}")
+print(f"  curated/ (Parquet)  leu {fmt(cur):>10}   ({raw / max(cur, 1):.0f}x menos)")
+frac = cur / raw if raw else 0
+print()
+print("Se o CSV tivesse 1 TB (Athena: US$ 5 por TB lido):")
+print(f"  CSV     : 1 TB lido → US$ 5,00 por consulta → US$ 15.000/mês com 100 consultas/dia")
+custo = 5 * frac
+print(f"  Parquet : {frac*1024:.1f} GB lidos → US$ {custo:.4f} por consulta → US$ {custo*3000:,.2f}/mês".replace(",", "X").replace(".", ",").replace("X", "."))
+print()
+print("No lab a fatura é de centavos: o Athena cobra no mínimo 10 MB por consulta.")
+PY
+  echo "Console: Athena → Recent queries → coluna Data scanned das duas consultas."
+  echo "Pergunta: quem decide o formato do lake na empresa de vocês? E quem paga a consulta?"
 }
 
 _qc_ajuda() {
@@ -122,7 +218,10 @@ Uso: qc <comando>
   qc sql                     abre o banco no pgcli (sair: \q; tela parada em (END): q)
   qc sql "SELECT ..."        roda uma consulta e mostra o resultado
   qc athena "SELECT ..."     roda SQL no Athena (alternativa ao console)
-  qc sentimento              demo do professor: sentimento das reviews (Comprehend)
+  qc lake gera               Lab 1B: ~200 mil pedidos → raw/pedidos/ (CSV) + tabela qc.pedidos_raw
+  qc lake cura               Lab 1B: CTAS → curated/pedidos/ (Parquet, por mês)
+  qc lake compara            Lab 1B: a mesma pergunta nas duas camadas, bytes lidos e custo
+  qc sentimento              demo (movida para a Aula 4): sentimento das reviews
 
 Sessão nova do CloudShell? Rode de novo:
   source ~/aie-cloud/aulas/02-storage-bancos/lab/qc.sh
@@ -199,6 +298,13 @@ qc() {
         _qc_deps boto3=boto3 psycopg='psycopg[binary]' || return 1
         python "$scripts/consultar.py" "$*"
       fi ;;
+    lake)
+      case "${2:-}" in
+        gera)    _qc_lake_gera ;;
+        cura)    _qc_lake_cura ;;
+        compara) _qc_lake_compara ;;
+        *) echo "Uso: qc lake gera | cura | compara" >&2; return 1 ;;
+      esac ;;
     athena)
       shift
       [ $# -gt 0 ] || { echo 'Uso: qc athena "SELECT * FROM produtos LIMIT 5"' >&2; return 1; }

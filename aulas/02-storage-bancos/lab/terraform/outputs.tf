@@ -1,7 +1,7 @@
 # Outputs consumidos pelo guia e pelos scripts Python (export VAR=$(terraform output -raw ...))
 
 output "bucket_name" {
-  description = "Bucket S3 da QC (prefixos catalogo/, imagens/, logs/)"
+  description = "Bucket S3 da QC (prefixos catalogo/, imagens/, logs/ e as camadas raw/ e curated/ do lake)"
   value       = module.bucket_qc.nome
 }
 
