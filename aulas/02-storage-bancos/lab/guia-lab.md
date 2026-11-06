@@ -144,13 +144,13 @@ qc lake cura      # CTAS no Athena: o mesmo dado em Parquet, particionado por m�
 qc lake compara   # a mesma pergunta nas duas tabelas: resultado, bytes lidos e o custo em 1 TB
 ```
 
-- O `qc lake gera` cria cerca de 200 mil pedidos de 12 meses (semente fixa: todos os grupos geram o mesmo arquivo, ~13 MB), sobe em `raw/pedidos/` e cria a tabela `qc.pedidos_raw` sobre o CSV, como o `CREATE EXTERNAL TABLE` do Lab 1.
+- O `qc lake gera` cria cerca de 200 mil pedidos de 12 meses (semente fixa: todos os grupos geram o mesmo arquivo, ~13 MB), sobe **um único CSV** em `raw/pedidos/` e cria a tabela `qc.pedidos_raw` sobre ele, como o `CREATE EXTERNAL TABLE` do Lab 1. Ainda não há pastas por mês: o `raw/` guarda o dado como chegou.
 - O `qc lake cura` roda uma consulta **CTAS** (`CREATE TABLE ... AS SELECT`) no próprio Athena: ele lê o CSV e grava o mesmo dado em **Parquet** (colunar e comprimido), com uma pasta por mês (`mes=2026-09/`). Nenhum serviço novo.
 - O `qc lake compara` faz a pergunta "faturamento por categoria em setembro" nas duas tabelas e mostra o resultado, os bytes lidos e a projeção para um CSV de 1 TB.
 
 **Console**
 
-1. **S3 → `qc-aula02-xxxxxx` → `raw/pedidos/`**: um CSV. Depois, **`curated/pedidos/`**: uma pasta por mês, com arquivos bem menores.
+1. **S3 → `qc-aula02-xxxxxx` → `raw/pedidos/`**: um único CSV, sem pastas. Depois do `qc lake cura`, **`curated/pedidos/`**: uma pasta por mês, com arquivos bem menores.
 2. **Athena → Recent queries**: a coluna **Data scanned** das duas consultas do `qc lake compara`. O resultado é o mesmo; o volume lido, não.
 
 > No lab a fatura é de centavos: o Athena cobra no mínimo 10 MB por consulta. A conta que importa é a de TB, no slide seguinte do deck.
@@ -218,6 +218,14 @@ qc carga reviews
 SELECT * FROM "qc-aula02-xxxxxx-reviews" WHERE produto_id = 5
 ```
 
+O PartiQL do DynamoDB não tem `LIKE`. Para procurar um trecho do texto, use `contains()`, com o valor entre aspas **simples** (aspas duplas são nome de tabela ou atributo) e atenção a maiúsculas e minúsculas:
+
+```sql
+SELECT * FROM "qc-aula02-xxxxxx-reviews" WHERE contains("texto", 'embalagem')
+```
+
+Sem a chave no `WHERE`, essa consulta lê a tabela inteira (*scan*) e só depois filtra. Com 30 itens não pesa; com milhões, fica lenta e cara.
+
 **Pergunta para o grupo:** a consulta por produto é rápida porque `produto_id` é a chave. E "as 5 piores reviews da loja toda"? A tabela responde bem a essa pergunta? O que isso diz sobre escolher a chave antes de gravar?
 
 **✅ Checkpoint:** os 30 itens apareceram no Explore table items, com `produto_id` e `review_id`?
@@ -239,6 +247,14 @@ qc busca "algo para trabalhar em pé"
 qc busca "presente para quem corre"
 qc busca "<a pergunta do seu grupo>"
 ```
+
+**Onde estão os produtos?** No RDS PostgreSQL, não no DynamoDB: o console do RDS não tem editor de consultas para PostgreSQL comum (o Query Editor é só do Aurora), então a consulta é pelo `qc sql`:
+
+```bash
+qc sql "SELECT id, nome, categoria, preco FROM produtos_vetor ORDER BY id"
+```
+
+A review aponta para o produto só pelo número `produto_id`. Nenhum dos dois bancos garante que esse produto exista: não há chave estrangeira entre DynamoDB e RDS, e essa consistência vira responsabilidade da aplicação.
 
 Cada resultado mostra, lado a lado, a busca por **palavra** (a frase no nome ou na descrição) e a busca pelo **sentido** (os 3 produtos com o embedding mais próximo). Anotem:
 
@@ -296,8 +312,10 @@ Leva ~5 min por causa do RDS. Depois, confira em **Resource Groups & Tag Editor 
 |----------|---------|
 | `qc: command not found` | O comando só existe depois do `source ~/aie-cloud/aulas/02-storage-bancos/lab/qc.sh` |
 | `ERRO: ... vazio. O terraform apply terminou?` | Espere o `apply` acabar e rode o `source` de novo; `qc status` mostra o que já existe |
-| Timeout ao conectar no RDS | O IP do CloudShell mudou: o `source` mostra o `terraform apply` que libera o IP novo (~1 min) |
+| Timeout ao conectar no RDS | O IP do CloudShell mudou (ele muda a cada sessão) e o security group só libera o IP do último `apply`. Compare `curl -s https://checkip.amazonaws.com` com `terraform output -raw meu_ip`; se diferentes, `terraform apply -auto-approve -var="db_password=$DB_PASSWORD"` (~1 min) |
+| Ainda timeout com o IP certo | O RDS pode estar parado: `aws rds describe-db-instances --query "DBInstances[].DBInstanceStatus"`; se `stopped`, `aws rds start-db-instance --db-instance-identifier <id>` e espere `available` (~5 min) |
 | `ExpiredToken` / `InvalidClientTokenId` | A sessão do Learner Lab acabou: **Start Lab** e CloudShell novo |
+| `AccessDenied` com `explicit deny ... policy/voc-cancel-cred` (em tudo, até no `destroy`) | A sessão do Learner Lab acabou e as credenciais foram revogadas. Nada foi apagado: **Start Lab**, feche e reabra o CloudShell, confira com `aws sts get-caller-identity`, rode o `source` e repita o comando |
 | `AccessDenied ... GetBucketObjectLockConfiguration` no `apply` | Código antigo: `git -C ~/aie-cloud pull`, `terraform init`, `terraform state rm aws_s3_bucket.qc`, `terraform apply` |
 | `NoSuchKey` no `qc carga produtos` | O Lab 1 não rodou: `qc carga catalogo` |
 | `qc busca` diz que `produtos_vetor` não existe | Rode antes `qc indexa` |
