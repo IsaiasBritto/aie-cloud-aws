@@ -31,7 +31,14 @@ export PATH="$HOME/bin:$PATH"
 export TF_PLUGIN_CACHE_DIR="$HOME/.terraform.d/plugin-cache"
 
 _qc_carrega() {
-  _qc_out() { terraform -chdir="$_qc_tf" output -raw "$1" 2>/dev/null; }
+  # Lê um output do Terraform. Sem state (antes do apply ou depois do destroy),
+  # o terraform imprime um aviso "No outputs found" na saída padrão: vira vazio.
+  _qc_out() {
+    local v
+    v="$(terraform -chdir="$_qc_tf" output -raw "$1" 2>/dev/null)" || v=""
+    case "$v" in *$'\n'*|*"No outputs found"*|*"╷"*) v="" ;; esac
+    printf '%s' "$v"
+  }
   BUCKET_NAME="$(_qc_out bucket_name)"
   FUNCTION_NAME="$(_qc_out lambda_name)"
   FUNCTION_URL="$(_qc_out function_url)"
