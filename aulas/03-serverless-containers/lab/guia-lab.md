@@ -116,7 +116,11 @@ O `qc chama` faz a requisição HTTPS na Function URL, mostra o JSON, o código 
 
 > ⚠️ **Esperado, não é falha:** a primeira chamada leva ~1 s (cold start). As seguintes são milissegundos.
 
-**No console:** abra a Function URL no navegador e no celular. Depois, **CloudWatch** → **Log groups** → `/aws/lambda/qc-aula03-…-catalogo` → o stream mais recente: a primeira chamada tem a linha `REPORT` com **Init Duration** (o cold start); as seguintes, não.
+**No console:** abra a Function URL no navegador e no celular. Depois veja o cold start no log da função:
+
+1. **Lambda** → `qc-aula03-…-catalogo` → aba **Monitor** → botão **View CloudWatch logs**. O botão já abre o log group certo.
+2. Abra o **log stream** mais recente.
+3. Procure as linhas `REPORT`: a primeira chamada depois do `qc publica` tem **Init Duration** (o cold start); as seguintes, não.
 
 **Pergunta para o grupo:** quanto custaria se o agente chamasse esta ferramenta 100 mil vezes por dia? (A conta está no deck, logo depois do lab.)
 
@@ -180,7 +184,7 @@ qc chama "/produtos?categoria=moveis&preco_max=1500"
     return resposta({"total": len(resultado), "produtos": resultado})
 ```
 
-Se o `float()` receber algo que não é número (`?preco_max=abc`), a função quebra com erro 500. Bom gancho para discutir validação de entrada numa tool de agente: o modelo pode mandar qualquer coisa.
+Se o `float()` receber algo que não é número (`?preco_max=abc`), a função quebra e a Function URL devolve **502** (Bad Gateway). Bom gancho para discutir validação de entrada numa tool de agente: o modelo pode mandar qualquer coisa.
 </details>
 
 O `preco_max` vira um parâmetro novo da tool (ver [Conexão com o projeto](#conexão-com-o-projeto-quantum-commerce)).
@@ -195,7 +199,7 @@ Repare: a ferramenta devolve as 3 cadeiras, mas não sabe qual é "boa pra colun
 
 ### Conferir o código FastAPI
 
-[docker/app.py](docker/app.py) tem a mesma lógica da v2-s3, em FastAPI, **já com o `preco_max`**: é a mesma ferramenta. Compare o roteamento: na Lambda, um `if` no `rawPath`; aqui, o **decorator** `@app.get("/produtos")`, e o FastAPI converte a query string nos parâmetros da função. O [Dockerfile](docker/Dockerfile) é multi-stage, com base do ECR Public e usuário não-root. Se alguém mandar `preco_max=abc`, o FastAPI devolve 422 (entrada inválida); a Lambda do gabarito quebraria com 500. Bom gancho: uma ferramenta de agente precisa validar o que recebe.
+[docker/app.py](docker/app.py) tem a mesma lógica da v2-s3, em FastAPI, **já com o `preco_max`**: é a mesma ferramenta. Compare o roteamento: na Lambda, um `if` no `rawPath`; aqui, o **decorator** `@app.get("/produtos")`, e o FastAPI converte a query string nos parâmetros da função. O [Dockerfile](docker/Dockerfile) é multi-stage, com base do ECR Public e usuário não-root. Se alguém mandar `preco_max=abc`, o FastAPI devolve 422 (entrada inválida); a Lambda do gabarito quebra e a Function URL devolve 502. Bom gancho: uma ferramenta de agente precisa validar o que recebe.
 
 ### Passo 1 — Build, ECR e a tarefa no Fargate
 
@@ -258,7 +262,11 @@ Apaga Lambda, bucket, ECR (com as imagens) e o cluster ECS de uma vez. Depois co
 
 > **Parar não é zerar:** tarefa parada, ECR ocioso — ainda há imagem armazenada e logs consumindo. Pausar não basta.
 
-**Conferir:** Tag Editor com a tag `aula = 3` → a busca deve voltar **vazia**.
+**Conferir:** Tag Editor com a tag `aula = 3` → não deve sobrar Lambda, bucket nem ECR. O cluster, o serviço e a task definition do ECS podem continuar aparecendo: depois do destroy eles ficam como **INACTIVE**, sem nada rodando e sem custo. Para confirmar:
+
+```bash
+aws ecs describe-clusters --clusters <cluster> --query 'clusters[].status' --output text   # INACTIVE
+```
 
 ---
 
