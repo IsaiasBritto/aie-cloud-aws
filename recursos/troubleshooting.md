@@ -77,7 +77,8 @@ pip install --no-cache-dir boto3 "psycopg[binary]"
 ```
 
 O `/tmp` é apagado quando a sessão reinicia: se voltar o `ModuleNotFoundError`, repita os
-dois comandos. Os `exportar-outputs.sh` das aulas 2 e 4 já criam e ativam esse venv.
+dois comandos. O `qc.sh` da Aula 2 já cria e ativa esse venv e instala o que falta. A Aula 4 não
+precisa de venv: o boto3 do CloudShell basta, e o `qc publica` empacota as dependências da Lambda em `/tmp`.
 
 ### Python 3.9 no CloudShell × Python 3.12 na Lambda
 

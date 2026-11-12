@@ -47,5 +47,6 @@ data "aws_iam_role" "lab" {
 }
 
 
-# Nada a criar para Transcribe, Polly, Comprehend e Rekognition:
-# são APIs da conta, liberadas por IAM (a LabRole já tem acesso).
+# Nada a criar para Rekognition e Textract: são APIs da conta, liberadas por IAM
+# (a LabRole já tem acesso). Voz e sentimento vêm da API de IA da QC, hospedada
+# pelo professor fora do Learner Lab: aqui só existe o segredo com a chave (secrets.tf).

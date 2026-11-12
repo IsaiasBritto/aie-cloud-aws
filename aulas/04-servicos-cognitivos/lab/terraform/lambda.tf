@@ -1,4 +1,4 @@
-# Lambda Python 3.12 + Function URL + LabRole (timeout 60 s: a transcrição é assíncrona).
+# Lambda Python 3.12 + Function URL + LabRole (timeout 60 s: a transcrição na API de IA leva até ~25 s).
 # O Terraform publica um "placeholder"; o código real (com dependências) é
 # publicado no lab com pip install -t . + aws lambda update-function-code.
 
@@ -13,7 +13,7 @@ data "archive_file" "placeholder" {
       def lambda_handler(event, context):
           return {"statusCode": 200, "headers": {"Content-Type": "application/json"},
                   "body": json.dumps({"status": "placeholder",
-                                      "msg": "Publique o código real: veja o Lab 2 do guia"})}
+                                      "msg": "Publique o código real: qc publica"})}
     PY
   }
 }
@@ -36,6 +36,8 @@ resource "aws_lambda_function" "cognitivo" {
     variables = {
       DATA_BUCKET             = module.bucket_data.nome
       REVIEWS_TABLE           = aws_dynamodb_table.reviews.name
+      PRODUTOS_TABLE          = aws_dynamodb_table.produtos.name
+      SECRET_NAME             = aws_secretsmanager_secret.api_ia.name # o NOME do segredo, nunca o valor
       POWERTOOLS_SERVICE_NAME = "qc-cognitivo"
     }
   }

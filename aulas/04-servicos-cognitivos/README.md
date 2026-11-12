@@ -4,17 +4,17 @@
 
 Ao final desta aula, você será capaz de:
 
-- Consumir APIs de IA prontas da AWS: **Amazon Transcribe** (fala → texto em PT-BR), **Amazon Polly** (texto → fala), **Amazon Comprehend** (sentimento + entidades) e **Amazon Rekognition** (rótulos, objetos e texto em imagens).
+- Consumir APIs de IA prontas da AWS: **Amazon Rekognition** (rótulos, texto e moderação de imagens), **Amazon Textract** (OCR e formulários), e **Polly**, **Transcribe** e **Comprehend** (voz e sentimento) por uma API de terceiro.
 - Explicar por que, na AWS, esses serviços **não precisam de recurso provisionado**: são APIs da conta, autorizadas por IAM.
-- Autenticar uma Lambda nas APIs de IA pela **execution role** (sem chave no código) e ler segredos de terceiros do **Secrets Manager**.
+- Autenticar uma Lambda de dois jeitos sem chave no código: pela **execution role**, nos serviços da própria conta, e pelo **Secrets Manager**, na chave de uma API de terceiro.
+- Acionar a mesma Lambda por **chamada direta** e por **evento do S3**, e dizer quando usar cada um.
 - Decidir entre **API pronta**, **modelo customizado** (Custom Labels, Comprehend Custom) e **LLM** (Amazon Bedrock) para cada caso de uso.
-- Construir um **pipeline de IA ponta a ponta**: a Lambda lê áudio/imagem do S3, transcreve/analisa e grava o resultado no DynamoDB — sem nenhuma credencial no código.
 
 ---
 
 ## Por que esta aula importa para um AI Engineer
 
-Os agentes da QC precisam **ouvir**, **ler** e **ver** — não só processar texto. As APIs prontas dão essas capacidades em minutos, sem treinar nada. A escolha entre pronta, custom e LLM define **custo, latência e qualidade** da experiência.
+Os agentes da QC precisam **ouvir**, **ler** e **ver**, não só processar texto. As APIs prontas dão essas capacidades em minutos, sem treinar nada. A escolha entre pronta, custom e LLM define **custo, latência e qualidade** da experiência. E quase todo agente consome alguma API de terceiro: saber onde guardar a chave é parte do trabalho.
 
 ---
 
@@ -22,12 +22,13 @@ Os agentes da QC precisam **ouvir**, **ler** e **ver** — não só processar te
 
 Esta aula adiciona **novas tools** à API da QC:
 
-| Tool | Serviço |
-|------|---------|
-| `/transcrever` | Transcribe — atendimento por voz |
-| `/analisar-reviews` | Comprehend — sentimento + entidades das reviews do DynamoDB |
-| `/analisar-imagem` | Rekognition — rótulos + texto das imagens dos produtos |
-| `/tts`, `/stt`, `/visao` | Polly, Transcribe e Rekognition para o front-end |
+| Tool | Serviço | Caminho |
+|------|---------|---------|
+| `/falar`, `/transcrever` | Polly e Transcribe | API de IA da QC (chave no Secrets Manager) |
+| `/analisar-reviews` | Comprehend + DynamoDB | API de IA da QC |
+| `/ler-documento` | Textract | LabRole |
+| `/analisar-imagem` | Rekognition + DynamoDB | LabRole |
+| evento `reviews-fotos/` | Rekognition (moderação) | LabRole, acionada pelo S3 |
 
 ---
 
@@ -35,14 +36,15 @@ Esta aula adiciona **novas tools** à API da QC:
 
 | Arquivo | Quando usar |
 |---------|-------------|
-| [lab/guia-lab.md](lab/guia-lab.md) | Durante a aula — 5 atividades |
-| [lab/terraform/](lab/terraform/) | Bucket + Lambda + Function URL + tabela DynamoDB de reviews |
-| [lab/check_servicos.sh](lab/check_servicos.sh) | Pré-voo: a sessão chega aos serviços de IA antes do apply? |
-| [lab/function/](lab/function/) | Lambda com as rotas de IA (Powertools) |
-| [lab/scripts/](lab/scripts/) | `semear_reviews.py` e `gerar_audio_tts.py` (Polly) |
-| [lab/app/](lab/app/) | Front-end Streamlit: Lambda × chamada direta |
-| [lab/exportar-outputs.sh](lab/exportar-outputs.sh) | `source` para recarregar os outputs num terminal novo |
-| [exercicios.md](exercicios.md) | Após a aula — exercícios em 3 níveis |
+| [lab/guia-lab.md](lab/guia-lab.md) | Durante a aula: abertura e 4 labs |
+| [lab/qc.sh](lab/qc.sh) | `source` uma vez por sessão: cria o comando `qc` |
+| [lab/terraform/](lab/terraform/) | Bucket + evento, Lambda + Function URL, duas tabelas DynamoDB, o segredo |
+| [lab/check_servicos.sh](lab/check_servicos.sh) | Pré-voo: a sessão chega aos serviços antes do apply? |
+| [lab/function/](lab/function/) | Lambda com as tools cognitivas (Powertools) |
+| [lab/data/](lab/data/) | Áudio, etiqueta fictícia e fotos de exemplo |
+| [lab/app/](lab/app/) | Front-end Streamlit da demo do professor |
+| [professor/api-ia/](professor/api-ia/) | A API de IA da QC, na conta do professor |
+| [exercicios.md](exercicios.md) | Após a aula: exercícios em 3 níveis |
 
 ## Entrega de grupo
 
@@ -53,6 +55,7 @@ Esta aula gera a **4ª entrega de grupo** (10% da nota): instruções em [entreg
 ## Pré-requisitos
 
 - ✅ Learner Lab iniciado, CloudShell e Terraform no `$HOME`
-- ✅ Nenhuma dependência das aulas anteriores — **esta aula é autossuficiente**
+- ✅ Nenhuma dependência das aulas anteriores: **esta aula é autossuficiente**
+- ✅ A URL e a chave da API de IA, entregues pelo professor a cada grupo
 
-> **Amazon Bedrock:** o Learner Lab não libera o Bedrock. Ele aparece aqui como contexto (e nos exercícios de N3); a demonstração com LLM é do professor.
+> **O que o Learner Lab não libera:** Polly, Transcribe, Comprehend, Translate e Bedrock. Voz e sentimento chegam pela API de IA da QC, hospedada pelo professor; o Bedrock aparece aqui como contexto (e nos exercícios de N3) e entra de verdade na Aula 5.

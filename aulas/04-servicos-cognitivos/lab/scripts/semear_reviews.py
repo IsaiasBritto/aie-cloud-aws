@@ -2,7 +2,7 @@
 Semeia 10 reviews de exemplo na tabela DynamoDB da Aula 4.
 
 Uso:  python3 scripts/semear_reviews.py
-Variável de ambiente: REVIEWS_TABLE (source exportar-outputs.sh)
+Variável de ambiente: REVIEWS_TABLE (o qc.sh exporta; atalho: qc semeia)
 
 Repare no que NÃO existe aqui: senha de banco, host, porta, chave de acesso.
 O boto3 grava na tabela com a credencial da sessão do CloudShell (LabRole), e a
@@ -17,7 +17,7 @@ import boto3
 TABELA = os.environ.get("REVIEWS_TABLE")
 if not TABELA:
     print("Exporte REVIEWS_TABLE com o nome da tabela:")
-    print("  source ~/aie-cloud/aulas/04-servicos-cognitivos/lab/exportar-outputs.sh")
+    print("  source ~/aie-cloud/aulas/04-servicos-cognitivos/lab/qc.sh")
     sys.exit(1)
 
 reviews = [
@@ -46,4 +46,4 @@ for stars in range(1, 6):
     count = sum(1 for r in reviews if r["estrelas"] == stars)
     bar = "★" * stars + "☆" * (5 - stars)
     print(f"  {bar}: {count} reviews")
-print("\nConfira no console: DynamoDB → Tables → a tabela → Explore table items")
+print("\nConfira no console: DynamoDB → Tables → a tabela → Explore table items (ou: qc tabela reviews)")

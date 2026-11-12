@@ -102,21 +102,24 @@ Marque a estratégia recomendada para produção e justifique:
 | Access key hardcoded no `function_app.py` | | |
 | Access key em variável de ambiente da Lambda | | |
 | Access key no Secrets Manager, lida pela Lambda | | |
-| Execution role da Lambda com permissão direta no Comprehend/Rekognition | | |
+| Execution role da Lambda com permissão direta no Rekognition/Textract | | |
+| API key de um **terceiro** (a API de IA da QC) no Secrets Manager, lida pela execution role | | |
 
 **Perguntas extras:**
 
 1. Por que, na AWS, **não existe** "chave do serviço de IA" como em outras nuvens? Onde fica, então, o controle de acesso?
 2. Uma versão anterior deste lab guardava as reviews num MongoDB numa EC2: senha no script, segredo no Secrets Manager para a Lambda e porta 27017 aberta para a internet (a Lambda roda fora da VPC). Liste os riscos e explique por que o DynamoDB os elimina. Se a QC **precisasse** de MongoDB, como seria em produção? (Amazon DocumentDB ou Mongo em subnet privada, Lambda na VPC, regra de entrada referenciando o **security group da Lambda**, VPC endpoints para S3/Secrets Manager)
 3. O `semear_reviews.py` não tem credencial nenhuma. De onde vem a autorização para gravar na tabela? Escreva a policy IAM mínima (ação e ARN) para esse script.
+4. No Lab 2, a chave do grupo passou pelo `qc chave` direto para o Secrets Manager. Liste os lugares por onde ela **não** passou (código, Terraform, tfstate, histórico do shell, variável de ambiente da Lambda) e diga o risco de cada um. Se ela vazasse mesmo assim, o que limita o estrago do lado da API de IA?
 
 <details>
 <summary>Sugestão</summary>
 
 - Hardcoded → **NÃO** (vaza no repositório)
 - Variável de ambiente → **não ideal** (quem lê a configuração da função vê)
-- Secrets Manager → **ok para segredos de terceiros** (senha de um banco autogerenciado, chave de API externa), mas desnecessário para serviços AWS
-- **Execution role** → ✅ **padrão de produção**: credencial temporária, rotacionada pela própria Lambda, auditada no CloudTrail
+- Access key no Secrets Manager → **desnecessário** para serviços da própria conta AWS: a role resolve sem chave nenhuma
+- **Execution role** → ✅ **padrão de produção** para serviços da AWS: credencial temporária, rotacionada pela própria Lambda, auditada no CloudTrail
+- API key de terceiro no Secrets Manager → ✅ **o padrão quando a API não é da AWS** (pagamento, frete, um LLM de outro provedor, a API de IA da QC): a chave existe, então ela mora no cofre, e a role decide quem lê o cofre
 
 </details>
 
@@ -143,13 +146,13 @@ Para cada cenário da QC, escolha a capacidade (**DetectLabels**, **DetectText**
 
 ### Exercício 2.1 — Pipeline robusto de reviews QC
 
-O L₃ fez sentimento + entidades. Estenda a rota `/analisar-reviews` (ou crie `/analisar-reviews-v2`) com:
+O L₃ fez sentimento + entidades, mandando o texto das reviews para a API de IA, que é um serviço **fora da sua conta**. Estenda a rota `/analisar-reviews` (ou crie `/analisar-reviews-v2`) com:
 
-a) **PII:** antes da análise, redija CPF, e-mail e telefone. Teste `comprehend.detect_pii_entities` e confira se o português é suportado; se não for, implemente com regex para CPF/telefone/e-mail e explique a limitação.
+a) **PII antes de sair da conta:** antes de chamar a API de IA, redija CPF, e-mail e telefone **na sua Lambda**, com regex. Teste com reviews novas que tenham esses dados (grave com `put_item`). Explique por que a redação tem que acontecer antes da chamada e não depois, à luz da LGPD (quem é o operador do dado quando ele chega ao terceiro?). Pesquise se o `DetectPiiEntities` do Comprehend aceita português e diga se ele resolveria o problema.
 
-b) **Sentimento por aspecto:** use `comprehend.detect_targeted_sentiment` para identificar **aspectos** ("entrega" → negativo, "qualidade" → positivo). Confira os idiomas suportados — se o português não estiver, use `TranslateText` do Amazon Translate antes (e discuta o custo e o risco de traduzir).
+b) **Sentimento por aspecto (desenho):** o Comprehend tem `DetectTargetedSentiment` ("entrega" → negativo, "qualidade" → positivo). Confira na documentação os idiomas suportados. Se o português não estiver, compare duas saídas: traduzir antes com o Amazon Translate (custo, risco de distorcer o sentido) ou pedir os aspectos a um LLM. Não precisa implementar: o Learner Lab não libera nenhum dos dois.
 
-c) **Resumo:** para reviews com mais de 300 caracteres, um resumo de 1 frase — com quê? (Comprehend não resume: compare `DetectKeyPhrases` com um LLM no Bedrock)
+c) **Resumo:** para reviews com mais de 300 caracteres, um resumo de 1 frase. Com quê? (O Comprehend não resume: compare `DetectKeyPhrases` com um LLM no Bedrock, que entra na Aula 5.)
 
 d) **Persistência estruturada** no DynamoDB (lembre: números decimais vão como `Decimal`):
 
@@ -171,7 +174,7 @@ d) **Persistência estruturada** no DynamoDB (lembre: números decimais vão com
 }
 ```
 
-**Entrega:** código atualizado + 3 reviews processadas no `entrega-grupo-aula04.md`.
+**Entrega:** código atualizado (a redação do item a) + 3 reviews processadas, com o texto antes e depois da redação, no `entrega-grupo-aula04.md`.
 
 ---
 
@@ -211,7 +214,7 @@ d) **Recomende** — e, se fizer sentido, proponha um híbrido (Custom Labels no
 
 A Aula 2 gerou embeddings com MiniLM no CloudShell. Agora, use os **resultados de IA desta aula** para enriquecer a busca:
 
-a) Para cada review analisada no DynamoDB, gere um embedding do texto (mesmo modelo da Aula 2, com `fastembed`) e grave numa tabela `reviews_vetor` no RDS da Aula 2 (ou num RDS novo) com o sentimento do Comprehend como coluna.
+a) Para cada review analisada no DynamoDB, gere um embedding do texto (mesmo modelo da Aula 2, com `fastembed`) e grave numa tabela `reviews_vetor` no RDS da Aula 2 (ou num RDS novo) com o sentimento (o que a API de IA devolveu no L₃) como coluna.
 b) Implemente a consulta: "reviews **negativas** que falam de **entrega atrasada**" = filtro `sentimento = 'NEGATIVE'` + `ORDER BY embedding <=> :consulta`.
 c) Compare com a mesma busca só por palavra (`ILIKE '%entrega%'`).
 d) **Produção:** troque o MiniLM pelo **Amazon Titan Text Embeddings V2** (1024 dimensões) no Bedrock. Estime o custo de vetorizar 30M de reviews (~80 tokens cada) a ~US$ 0,02 por 1M tokens.

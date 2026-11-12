@@ -1,31 +1,34 @@
 """
-Lambda — Aula 4 Quantum Commerce: serviços de IA da AWS por trás de uma Function URL.
+Lambda da Aula 4 — os sentidos do agente da Quantum Commerce.
 
-Sem chave em lugar nenhum: Transcribe, Polly, Comprehend e Rekognition são APIs
-da conta, autorizadas pela execution role da função (no Learner Lab, a LabRole).
-As reviews ficam no DynamoDB, também acessado pela LabRole: nem senha de banco existe.
+Duas origens de IA, dois jeitos de autenticar:
 
-Rotas das atividades (arquivos no bucket de dados):
+  * Na conta do Learner Lab (Rekognition e Textract): a função chama pela
+    execution role (LabRole). Nenhuma chave no código.
+  * Na API de IA da QC (voz e sentimento: Polly, Transcribe e Comprehend, que o
+    Learner Lab não libera): um serviço de terceiro, que exige API key. A chave
+    do grupo fica no Secrets Manager; a função lê o segredo pela LabRole. Também
+    nenhuma chave no código.
+
+Rotas (Function URL, roteamento com Powertools):
   GET  /health
-  POST /transcrever?arquivo=audio-teste.mp3&idioma=pt-BR   (Transcribe, S3 audios/)
-  POST /analisar-reviews?limit=10                           (Comprehend + DynamoDB)
-  GET  /analisar-imagem?arquivo=produto.jpg                 (Rekognition, S3 imagens/)
+  POST /falar                JSON {texto, voz}  -> MP3 no S3 (audios/)  Lab 2
+  POST /transcrever?arquivo=fala.mp3           -> texto                Lab 2
+  POST /analisar-reviews?limit=10              -> sentimento no DynamoDB   Lab 3
+  POST /ler-documento?arquivo=etiqueta.png     -> OCR × campos (Textract)  Lab 3
+  POST /analisar-imagem?arquivo=produto.jpg   -> tags no DynamoDB     Lab 4
 
-Rotas que recebem o arquivo NO CORPO (usadas pelo app Streamlit):
-  POST /tts     JSON {texto, voz}           -> audio/wav (Polly)
-  POST /stt     corpo = bytes do áudio       -> JSON {transcricao} (Transcribe)
-  POST /visao   corpo = bytes da imagem      -> JSON {tags, texto, objetos} (Rekognition)
-
-GET também é aceito em /transcrever e /analisar-reviews para testar pelo navegador.
+E um gatilho que não é rota: o upload em reviews-fotos/ dispara a função pelo
+evento do S3, e ela modera a foto (Rekognition) e marca a review.     Lab 4
 """
 import base64
-import io
 import json
 import os
 import time
+import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
-import wave
 from decimal import Decimal
 
 import boto3
@@ -36,85 +39,91 @@ logger = Logger()
 app = LambdaFunctionUrlResolver(serializer=lambda o: json.dumps(o, ensure_ascii=False, default=str))
 
 DATA_BUCKET = os.environ["DATA_BUCKET"]
-REVIEWS_TABLE = os.environ.get("REVIEWS_TABLE", "")
+REVIEWS_TABLE = os.environ["REVIEWS_TABLE"]
+PRODUTOS_TABLE = os.environ["PRODUTOS_TABLE"]
+SECRET_NAME = os.environ["SECRET_NAME"]
 
 # Clientes criados fora do handler: reaproveitados entre invocações quentes
 s3 = boto3.client("s3")
-transcribe = boto3.client("transcribe")
-polly = boto3.client("polly")
-comprehend = boto3.client("comprehend")
 rekognition = boto3.client("rekognition")
+textract = boto3.client("textract")
+secrets = boto3.client("secretsmanager")
 dynamodb = boto3.resource("dynamodb")
 
-VOZES = {"Camila": "pt-BR", "Vitoria": "pt-BR", "Thiago": "pt-BR", "Joanna": "en-US", "Lucia": "es-ES"}
-FORMATOS_AUDIO = {"mp3", "mp4", "wav", "flac", "ogg", "amr", "webm", "m4a"}
 
-
-# ------------------------------------------------------------------ utilidades
-
-def _corpo_bytes() -> bytes:
-    """Bytes do corpo da requisição (a Function URL manda binário em base64)."""
-    ev = app.current_event.raw_event
-    corpo = ev.get("body") or ""
-    return base64.b64decode(corpo) if ev.get("isBase64Encoded") else corpo.encode()
-
+# ------------------------------------------------------- utilidades
 
 def _erro(msg: str, status: int = 500, **extra) -> Response:
     return Response(status_code=status, content_type="application/json",
                     body=json.dumps({"erro": msg, **extra}, ensure_ascii=False))
 
 
-def _transcrever_s3(chave: str, idioma: str, formato: str) -> dict:
-    """Job assíncrono do Transcribe sobre um objeto do S3; espera terminar (áudios curtos)."""
-    job = f"qc-{uuid.uuid4().hex[:8]}"
-    transcribe.start_transcription_job(
-        TranscriptionJobName=job,
-        LanguageCode=idioma,
-        MediaFormat=formato,
-        Media={"MediaFileUri": f"s3://{DATA_BUCKET}/{chave}"},
+def _dec(x: float) -> Decimal:
+    """O DynamoDB não aceita float: número decimal vai como Decimal."""
+    return Decimal(str(round(x, 3)))
+
+
+# ------------------------------------------- a API de IA da QC (terceiro)
+
+class SemChave(Exception):
+    """O segredo existe, mas o grupo ainda não gravou a chave nele (qc chave)."""
+
+
+_cache = {"valor": None, "lido_em": 0.0}
+
+
+def _credencial_api() -> dict:
+    """URL e chave da API de IA, lidas do Secrets Manager pela LabRole.
+
+    Cache de 5 minutos: cada leitura do segredo custa uma chamada (e US$ 0,05
+    por 10 mil). Se a chave for trocada, a função pega a nova em até 5 min.
+    """
+    if _cache["valor"] and time.time() - _cache["lido_em"] < 300:
+        return _cache["valor"]
+    try:
+        bruto = secrets.get_secret_value(SecretId=SECRET_NAME)["SecretString"]
+    except secrets.exceptions.ResourceNotFoundException as e:
+        # Segredo criado pelo Terraform, mas ainda sem valor
+        raise SemChave from e
+    valor = json.loads(bruto)
+    _cache.update(valor=valor, lido_em=time.time())
+    return valor
+
+
+def _api_ia(rota: str, corpo: dict, tentativa: int = 1) -> dict:
+    """POST JSON na API de IA da QC, com a API key do grupo no cabeçalho."""
+    cred = _credencial_api()
+    req = urllib.request.Request(
+        cred["url"].rstrip("/") + rota,
+        data=json.dumps(corpo).encode(),
+        headers={"content-type": "application/json", "x-api-key": cred["chave"]},
+        method="POST",
     )
-    inicio = time.time()
-    while True:
-        st = transcribe.get_transcription_job(TranscriptionJobName=job)["TranscriptionJob"]
-        if st["TranscriptionJobStatus"] in ("COMPLETED", "FAILED"):
-            break
-        if time.time() - inicio > 50:  # a Lambda tem 60 s; deixa margem para responder
-            return {"status": "IN_PROGRESS", "job": job,
-                    "dica": f"áudio longo: consulte depois com aws transcribe get-transcription-job --transcription-job-name {job}"}
-        time.sleep(2)
-
-    if st["TranscriptionJobStatus"] == "FAILED":
-        return {"status": "FAILED", "job": job, "motivo": st.get("FailureReason")}
-
-    # O resultado fica num bucket da AWS, acessível por URL pré-assinada
-    with urllib.request.urlopen(st["Transcript"]["TranscriptFileUri"], timeout=10) as r:
-        resultado = json.load(r)
-    texto = " ".join(t["transcript"] for t in resultado["results"]["transcripts"])
-    return {"status": "COMPLETED", "job": job, "transcricao": texto,
-            "segundos": round(time.time() - inicio, 1)}
+    try:
+        with urllib.request.urlopen(req, timeout=28) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        if e.code == 403 and tentativa == 1:
+            # A chave pode ter sido trocada (qc chave de novo): esquece o cache e relê
+            _cache["valor"] = None
+            return _api_ia(rota, corpo, tentativa=2)
+        # 403: chave errada ou revogada · 429: cota do grupo esgotada
+        detalhe = e.read().decode(errors="replace")[:300]
+        raise RuntimeError(f"API de IA respondeu {e.code}: {detalhe}") from e
 
 
-def _visao(imagem: dict, largura: int | None = None, altura: int | None = None) -> dict:
-    """Rekognition: rótulos (com caixas) + texto na imagem."""
-    labels = rekognition.detect_labels(Image=imagem, MaxLabels=15, MinConfidence=60)["Labels"]
-    textos = rekognition.detect_text(Image=imagem)["TextDetections"]
-
-    tags = [{"name": l["Name"], "confidence": round(l["Confidence"] / 100, 3)} for l in labels]
-    texto = "\n".join(t["DetectedText"] for t in textos if t["Type"] == "LINE")
-
-    objetos = []
-    for l in labels:
-        for inst in l.get("Instances", []):
-            b = inst["BoundingBox"]  # proporções 0–1 da imagem
-            caixa = {"x": b["Left"], "y": b["Top"], "w": b["Width"], "h": b["Height"]}
-            if largura and altura:  # converte para pixels quando sabemos o tamanho
-                caixa = {"x": round(b["Left"] * largura), "y": round(b["Top"] * altura),
-                         "w": round(b["Width"] * largura), "h": round(b["Height"] * altura)}
-            objetos.append({"label": l["Name"], "confidence": round(inst["Confidence"] / 100, 3), "box": caixa})
-    return {"tags": tags, "texto": texto, "objetos": objetos, "largura": largura, "altura": altura}
+def _chama_api(fn):
+    """Traduz os erros da API de IA em respostas que o aluno entende."""
+    try:
+        return fn()
+    except SemChave:
+        return _erro("o segredo da API de IA ainda está vazio: rode  qc chave", 503,
+                     segredo=SECRET_NAME)
+    except RuntimeError as e:
+        return _erro(str(e), 502)
 
 
-# ------------------------------------------------------------------- rotas lab
+# ---------------------------------------------------------------- rotas
 
 @app.get("/health")
 @app.get("/")
@@ -122,39 +131,67 @@ def health():
     return {
         "status": "ok",
         "service": "qc-cognitivo",
-        "rotas": ["/health", "/transcrever", "/analisar-reviews", "/analisar-imagem", "/tts", "/stt", "/visao"],
-        "bucket": DATA_BUCKET,
+        "rotas": ["/falar", "/transcrever", "/analisar-reviews",
+                  "/ler-documento", "/analisar-imagem"],
+        "gatilho": f"s3://{DATA_BUCKET}/reviews-fotos/ → moderação",
     }
 
 
-@app.get("/transcrever")
+# ---- Lab 2 · voz pela API de IA da QC
+
+@app.post("/falar")
+def falar():
+    """Texto → fala. A API devolve o MP3 em base64; a função guarda no S3."""
+    corpo = app.current_event.json_body or {}
+    texto = (corpo.get("texto") or "").strip()
+    if not texto:
+        return _erro("campo 'texto' vazio", 400)
+    voz = corpo.get("voz", "Camila")
+
+    def _faz():
+        inicio = time.time()
+        r = _api_ia("/tts", {"texto": texto, "voz": voz})
+        audio = base64.b64decode(r["audio_b64"])
+        chave = f"audios/fala-{uuid.uuid4().hex[:6]}.mp3"
+        s3.put_object(Bucket=DATA_BUCKET, Key=chave, Body=audio, ContentType="audio/mpeg")
+        link = s3.generate_presigned_url("get_object", Params={"Bucket": DATA_BUCKET, "Key": chave},
+                                         ExpiresIn=3600)
+        return {"arquivo": chave.split("/", 1)[1], "voz": voz, "bytes": len(audio),
+                "segundos": round(time.time() - inicio, 1), "ouvir": link}
+    return _chama_api(_faz)
+
+
 @app.post("/transcrever")
 def transcrever():
-    """
-    Transcreve um áudio do S3 via Amazon Transcribe.
-    POST /transcrever?arquivo=audio-teste.mp3&idioma=pt-BR
-    """
+    """Fala → texto. Lê o áudio do S3 e manda os bytes para a API de IA."""
     q = app.current_event
-    arquivo = q.get_query_string_value("arquivo", "audio-teste.mp3")
+    arquivo = q.get_query_string_value("arquivo", "")
     idioma = q.get_query_string_value("idioma", "pt-BR")
-
+    if not arquivo:
+        return _erro("informe ?arquivo=  (um arquivo de audios/ no bucket)", 400)
     formato = arquivo.rsplit(".", 1)[-1].lower()  # o formato vem da extensão
-    if formato not in FORMATOS_AUDIO:
-        return _erro(f"formato '{formato}' não suportado", 400, aceitos=sorted(FORMATOS_AUDIO))
-    try:
-        r = _transcrever_s3(f"audios/{arquivo}", idioma, formato)
-        return {**r, "arquivo": arquivo, "idioma": idioma}
-    except Exception as e:  # noqa: BLE001
-        logger.exception("Falha em /transcrever")
-        return _erro(str(e))
 
+    def _faz():
+        try:
+            audio = s3.get_object(Bucket=DATA_BUCKET, Key=f"audios/{arquivo}")["Body"].read()
+        except s3.exceptions.NoSuchKey:
+            return _erro(f"audios/{arquivo} não existe no bucket", 404)
+        if len(audio) > 4_000_000:  # base64 cresce 1/3; o limite do caminho é 6 MB
+            return _erro("áudio maior que 4 MB: use um trecho mais curto", 413)
+        inicio = time.time()
+        r = _api_ia("/stt", {"audio_b64": base64.b64encode(audio).decode(),
+                             "formato": formato, "idioma": idioma})
+        return {**r, "arquivo": arquivo, "segundos_total": round(time.time() - inicio, 1)}
+    return _chama_api(_faz)
+
+
+# ---- Lab 3 · sentimento (API de IA) e documento (Textract)
 
 def _pendentes(tabela, limite: int) -> list[dict]:
     """Reviews ainda sem sentimento. Scan com filtro: ok para dezenas de itens.
 
-    Em escala, o Scan lê (e cobra) a tabela inteira a cada chamada. Alternativas:
-    um índice esparso de "pendentes" ou um gatilho do DynamoDB Streams que analisa
-    cada review no momento em que ela é gravada.
+    Em escala, o Scan lê (e cobra) a tabela inteira a cada chamada. Em produção,
+    um gatilho do DynamoDB Streams analisaria cada review ao ser gravada.
     """
     itens, kwargs = [], {"FilterExpression": "attribute_not_exists(sentimento)"}
     while len(itens) < limite:
@@ -166,159 +203,159 @@ def _pendentes(tabela, limite: int) -> list[dict]:
     return itens[:limite]
 
 
-@app.get("/analisar-reviews")
 @app.post("/analisar-reviews")
 def analisar_reviews():
-    """
-    Lê reviews ainda não analisadas do DynamoDB, roda sentimento + entidades no
-    Amazon Comprehend (em lote) e grava o resultado de volta em cada item.
-    POST /analisar-reviews?limit=10
-    """
-    limit = int(app.current_event.get_query_string_value("limit", "10"))
-    try:
-        tabela = dynamodb.Table(REVIEWS_TABLE)
-        # O filtro evita reprocessar (e pagar de novo por) reviews já analisadas
-        items = _pendentes(tabela, limit)
-        if not items:
-            return {"msg": "Nenhuma review nova para analisar. Todas já processadas."}
+    """Sentimento + entidades das reviews pendentes, gravados de volta no DynamoDB."""
+    limite = min(int(app.current_event.get_query_string_value("limit", "10")), 25)
+    tabela = dynamodb.Table(REVIEWS_TABLE)
+    itens = _pendentes(tabela, limite)  # o filtro evita pagar duas vezes pela mesma review
+    if not itens:
+        return {"msg": "Nenhuma review nova para analisar. Todas já processadas."}
 
-        textos = [i["texto"] for i in items]
-        # Lote de até 25 documentos por chamada (limite do Comprehend). O Index de
-        # cada resultado é relativo ao lote: somamos o início do lote.
-        sentimentos, entidades = {}, {}
-        for ini in range(0, len(textos), 25):
-            lote = textos[ini:ini + 25]
-            for r in comprehend.batch_detect_sentiment(TextList=lote, LanguageCode="pt")["ResultList"]:
-                sentimentos[ini + r["Index"]] = r
-            for r in comprehend.batch_detect_entities(TextList=lote, LanguageCode="pt")["ResultList"]:
-                entidades[ini + r["Index"]] = r
-
-        resultados = []
-        for idx, item in enumerate(items):
-            s = sentimentos.get(idx)
-            if s is None:  # item foi para a ErrorList (texto vazio, longo demais...)
-                continue
-            e = entidades.get(idx, {"Entities": []})
-            # O DynamoDB não aceita float: números decimais vão como Decimal
+    def _faz():
+        # Uma chamada só para até 25 textos: a API usa o batch do Comprehend
+        r = _api_ia("/sentimento", {"textos": [i["texto"] for i in itens], "idioma": "pt"})
+        contagem = {}
+        for res in r["resultados"]:
+            item = itens[res["indice"]]
             tabela.update_item(
                 Key={"produto": item["produto"], "id": item["id"]},
                 UpdateExpression="SET sentimento = :s, sentimento_score = :sc, entidades = :e",
                 ExpressionAttributeValues={
-                    ":s": s["Sentiment"],
-                    ":sc": {k.lower(): Decimal(str(round(v, 3))) for k, v in s["SentimentScore"].items()},
-                    ":e": [{"text": x["Text"], "type": x["Type"], "score": Decimal(str(round(x["Score"], 3)))}
-                           for x in e["Entities"]],
+                    ":s": res["sentimento"],
+                    ":sc": {k: _dec(v) for k, v in res["scores"].items()},
+                    ":e": [{"text": e["texto"], "type": e["tipo"]} for e in res["entidades"]],
                 },
             )
-            resultados.append({"id": item["id"], "produto": item["produto"], "sentimento": s["Sentiment"]})
-
-        contagem = {k: sum(1 for r in resultados if r["sentimento"] == k)
-                    for k in ("POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED")}
-        return {"total_analisadas": len(resultados), **{k.lower(): v for k, v in contagem.items()},
-                "exemplos": resultados[:3]}
-    except Exception as e:  # noqa: BLE001
-        logger.exception("Falha em /analisar-reviews")
-        return _erro(str(e))
+            contagem[res["sentimento"]] = contagem.get(res["sentimento"], 0) + 1
+        return {"total_analisadas": len(r["resultados"]), "por_sentimento": contagem}
+    return _chama_api(_faz)
 
 
-@app.get("/analisar-imagem")
+@app.post("/ler-documento")
+def ler_documento():
+    """Textract na mesma imagem, de dois jeitos: OCR puro e campos de formulário.
+
+    detect_document_text devolve linhas soltas, sem saber o que é o quê.
+    analyze_document com FORMS devolve pares chave → valor ("Pedido:" → "QC-48213"),
+    em português. (Queries e notas/recibos do Textract são só em inglês.)
+    """
+    arquivo = app.current_event.get_query_string_value("arquivo", "etiqueta.png")
+    doc = {"S3Object": {"Bucket": DATA_BUCKET, "Name": f"documentos/{arquivo}"}}
+    try:
+        ocr = textract.detect_document_text(Document=doc)
+        linhas = [b["Text"] for b in ocr["Blocks"] if b["BlockType"] == "LINE"]
+
+        forms = textract.analyze_document(Document=doc, FeatureTypes=["FORMS"])
+        campos = _pares_chave_valor(forms["Blocks"])
+    except textract.exceptions.InvalidS3ObjectException:
+        return _erro(f"documentos/{arquivo} não existe no bucket", 404)
+    return {"arquivo": arquivo, "ocr_linhas": linhas, "campos": campos,
+            "custo_aprox_usd": {"ocr": 0.0015, "forms": 0.05}}
+
+
+def _pares_chave_valor(blocos: list[dict]) -> list[dict]:
+    """Monta "chave → valor" a partir dos blocos KEY_VALUE_SET do Textract."""
+    por_id = {b["Id"]: b for b in blocos}
+
+    def texto(bloco):
+        palavras = []
+        for rel in bloco.get("Relationships", []):
+            if rel["Type"] == "CHILD":
+                palavras += [por_id[i].get("Text", "") for i in rel["Ids"]
+                             if por_id[i]["BlockType"] == "WORD"]
+        return " ".join(palavras)
+
+    pares = []
+    for b in blocos:
+        if b["BlockType"] == "KEY_VALUE_SET" and "KEY" in b.get("EntityTypes", []):
+            valor = ""
+            for rel in b.get("Relationships", []):
+                if rel["Type"] == "VALUE":
+                    valor = " ".join(texto(por_id[i]) for i in rel["Ids"])
+            pares.append({"campo": texto(b).rstrip(":"), "valor": valor,
+                          "confianca": round(b["Confidence"], 1)})
+    return pares
+
+
+# ---- Lab 4 · catálogo (Rekognition, chamada direta)
+
 @app.post("/analisar-imagem")
 def analisar_imagem():
-    """
-    Analisa uma imagem do S3 com o Amazon Rekognition (rótulos, objetos e texto).
-    GET /analisar-imagem?arquivo=produto.jpg
-    """
-    arquivo = app.current_event.get_query_string_value("arquivo", "produto.jpg")
+    """Rótulos e texto da foto do produto, gravados como tags no catálogo."""
+    q = app.current_event
+    arquivo = q.get_query_string_value("arquivo", "produto.jpg")
+    produto = q.get_query_string_value("produto", arquivo.rsplit(".", 1)[0])
+    img = {"S3Object": {"Bucket": DATA_BUCKET, "Name": f"imagens/{arquivo}"}}
     try:
-        r = _visao({"S3Object": {"Bucket": DATA_BUCKET, "Name": f"imagens/{arquivo}"}})
-        return {**r, "arquivo": arquivo, "caixas_em": "proporção da imagem (0–1)"}
-    except Exception as e:  # noqa: BLE001
-        logger.exception("Falha em /analisar-imagem")
-        return _erro(str(e))
+        rotulos = rekognition.detect_labels(Image=img, MaxLabels=10, MinConfidence=70)["Labels"]
+        textos = rekognition.detect_text(Image=img)["TextDetections"]
+    except rekognition.exceptions.InvalidS3ObjectException:
+        return _erro(f"imagens/{arquivo} não existe no bucket", 404)
+
+    tags = [{"tag": r["Name"], "confianca": round(r["Confidence"], 1)} for r in rotulos]
+    texto = " ".join(t["DetectedText"] for t in textos if t["Type"] == "LINE")
+    dynamodb.Table(PRODUTOS_TABLE).put_item(Item={
+        "produto": produto, "imagem": f"imagens/{arquivo}",
+        "tags": [t["tag"] for t in tags], "texto_na_imagem": texto[:500],
+        "origem": "rekognition",
+    })
+    return {"produto": produto, "tags": tags, "texto_na_imagem": texto,
+            "gravado_em": PRODUTOS_TABLE}
 
 
-# --------------------------------------------------------- rotas do front-end
-# Recebem o arquivo NO CORPO: o app não precisa de credencial nenhuma de S3 ou
-# de IA — só fala HTTP com a Lambda, que é quem tem identidade.
+# ------------------------------------- Lab 4 · moderação (evento do S3)
 
-@app.post("/tts")
-def tts():
-    """Texto → fala com o Amazon Polly. Devolve WAV 16 kHz mono."""
-    corpo = app.current_event.json_body or {}
-    texto = (corpo.get("texto") or "").strip()
-    if not texto:
-        return _erro("campo 'texto' vazio", 400)
-    voz = corpo.get("voz", "Camila")
-    try:
-        pcm = polly.synthesize_speech(Text=texto, VoiceId=voz, Engine="neural",
-                                      OutputFormat="pcm", SampleRate="16000")["AudioStream"].read()
-        saida = io.BytesIO()
-        with wave.open(saida, "wb") as w:  # PCM cru → WAV (o navegador toca)
-            w.setnchannels(1)
-            w.setsampwidth(2)
-            w.setframerate(16000)
-            w.writeframes(pcm)
-        return Response(status_code=200, content_type="audio/wav", body=saida.getvalue())
-    except Exception as e:  # noqa: BLE001
-        logger.exception("Falha em /tts")
-        return _erro(str(e))
+# Categorias de primeiro nível que mandam a foto para revisão humana.
+# É uma decisão de negócio: uma loja de moda praia não bloquearia "Swimwear or Underwear".
+BLOQUEIA = {"Explicit Nudity", "Explicit", "Non-Explicit Nudity of Intimate parts and Kissing",
+            "Swimwear or Underwear", "Suggestive", "Violence", "Visually Disturbing",
+            "Drugs & Tobacco", "Alcohol", "Rude Gestures", "Gambling", "Hate Symbols"}
 
 
-@app.post("/stt")
-def stt():
-    """Fala → texto. Corpo = bytes do áudio. O Transcribe lê do S3, então o áudio passa por lá."""
-    audio = _corpo_bytes()
-    if not audio:
-        return _erro("corpo vazio — envie os bytes do áudio", 400)
-    idioma = app.current_event.get_query_string_value("idioma", "pt-BR")
-    formato = app.current_event.get_query_string_value("formato", "wav")
-    chave = f"audios/stt-{uuid.uuid4().hex[:8]}.{formato}"
-    try:
-        s3.put_object(Bucket=DATA_BUCKET, Key=chave, Body=audio)
-        r = _transcrever_s3(chave, idioma, formato)
-        return {**r, "idioma": idioma, "bytes_recebidos": len(audio)}
-    except Exception as e:  # noqa: BLE001
-        logger.exception("Falha em /stt")
-        return _erro(str(e))
-    finally:
-        s3.delete_object(Bucket=DATA_BUCKET, Key=chave)
+def moderar(registro: dict) -> dict:
+    """Foto anexada a uma review: publica ou manda para revisão."""
+    chave = urllib.parse.unquote_plus(registro["s3"]["object"]["key"])  # reviews-fotos/r004.jpg
+    review_id = chave.split("/")[-1].rsplit(".", 1)[0]
+
+    rotulos = rekognition.detect_moderation_labels(
+        Image={"S3Object": {"Bucket": DATA_BUCKET, "Name": chave}}, MinConfidence=60,
+    )["ModerationLabels"]
+    # A taxonomia tem até 3 níveis; ParentName aponta só para o nível de cima.
+    # Sobe até a raiz para comparar com as categorias de primeiro nível.
+    pai = {r["Name"]: r.get("ParentName", "") for r in rotulos}
+
+    def raiz(nome):
+        while pai.get(nome):
+            nome = pai[nome]
+        return nome
+
+    achados = [{"rotulo": r["Name"], "categoria": raiz(r["Name"]),
+                "confianca": round(r["Confidence"], 1)} for r in rotulos]
+    motivos = sorted({a["categoria"] for a in achados if a["categoria"] in BLOQUEIA})
+    status = "em_revisao" if motivos else "publicada"
+
+    # Achar a review pelo id: Scan, porque a chave da tabela é produto + id.
+    # Com milhões de reviews, um índice secundário (GSI) por id resolveria.
+    tabela = dynamodb.Table(REVIEWS_TABLE)
+    itens = tabela.scan(FilterExpression="id = :i",
+                        ExpressionAttributeValues={":i": review_id})["Items"]
+    if itens:
+        tabela.update_item(
+            Key={"produto": itens[0]["produto"], "id": review_id},
+            UpdateExpression="SET foto = :f, foto_status = :s, foto_motivos = :m",
+            ExpressionAttributeValues={":f": chave, ":s": status, ":m": motivos},
+        )
+    logger.info("moderação", extra={"review": review_id, "status": status,
+                                     "rotulos": achados, "review_encontrada": bool(itens)})
+    return {"review": review_id, "status": status, "motivos": motivos}
 
 
-@app.post("/visao")
-def visao():
-    """Análise de imagem. Corpo = bytes da imagem. Caixas em PIXELS."""
-    imagem = _corpo_bytes()
-    if not imagem:
-        return _erro("corpo vazio — envie os bytes da imagem", 400)
-    largura = altura = None
-    try:
-        largura, altura = _dimensoes(imagem)
-    except Exception:  # noqa: BLE001 — sem dimensão, as caixas saem em proporção
-        pass
-    try:
-        return _visao({"Bytes": imagem}, largura, altura)
-    except Exception as e:  # noqa: BLE001
-        logger.exception("Falha em /visao")
-        return _erro(str(e))
-
-
-def _dimensoes(img: bytes) -> tuple[int, int]:
-    """Largura e altura de PNG/JPEG sem depender do Pillow (que não está no runtime)."""
-    if img[:8] == b"\x89PNG\r\n\x1a\n":
-        return int.from_bytes(img[16:20], "big"), int.from_bytes(img[20:24], "big")
-    i = 2
-    while i < len(img):
-        if img[i] != 0xFF:
-            i += 1
-            continue
-        marcador = img[i + 1]
-        tamanho = int.from_bytes(img[i + 2:i + 4], "big")
-        if marcador in (0xC0, 0xC1, 0xC2):
-            return int.from_bytes(img[i + 7:i + 9], "big"), int.from_bytes(img[i + 5:i + 7], "big")
-        i += 2 + tamanho
-    raise ValueError("formato de imagem não reconhecido")
-
+# --------------------------------------------------------- entrada
 
 @logger.inject_lambda_context
 def lambda_handler(event, context):
+    # Evento do S3 (upload em reviews-fotos/) ou requisição HTTP da Function URL
+    if "Records" in event and event["Records"][0].get("eventSource") == "aws:s3":
+        return [moderar(r) for r in event["Records"]]
     return app.resolve(event, context)

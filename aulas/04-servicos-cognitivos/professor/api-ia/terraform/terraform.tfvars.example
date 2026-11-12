@@ -1,0 +1,4 @@
+# Copie para terraform.tfvars (que o .gitignore exclui) e preencha.
+email_alerta = "seu-email@exemplo.com"
+# grupos      = ["grupo-01", "grupo-02", "professor"]
+# cota_diaria = 300

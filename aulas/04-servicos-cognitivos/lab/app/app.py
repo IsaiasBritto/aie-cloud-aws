@@ -1,19 +1,24 @@
 """
 QC Cognitive Studio — front-end da Aula 4.
 
-Explora os serviços de IA do lab (Polly, Transcribe e Rekognition) por DOIS
+Explora os serviços de IA da aula (Polly, Transcribe e Rekognition) por DOIS
 caminhos diferentes, lado a lado:
 
-  A) via Lambda  — o app só fala HTTP; quem tem identidade é a função (LabRole)
-  B) direto na AWS — o app carrega credenciais e chama os serviços ele mesmo
+  A) pela API de IA da QC — o app manda uma API key de escopo pequeno (4 rotas,
+     cota diária, revogável sozinha); quem tem identidade na AWS é a função
+  B) direto na AWS — o app carrega uma access key e chama os serviços ele mesmo
 
-A comparação é o ponto da atividade. Os dois devolvem o mesmo resultado; o que
-muda é onde a credencial vive e quem pode usá-la.
+A comparação é o ponto da demo. Os dois devolvem o mesmo resultado; o que muda
+é o tamanho do estrago se a credencial do cliente vazar.
+
+Roda na máquina do professor, apontando para a API de professor/api-ia (o
+Learner Lab não libera Polly nem Transcribe).
 
 Rodar:
     pip install -r requirements.txt
     streamlit run app.py
 """
+import base64
 import io
 import json
 import time
@@ -49,18 +54,20 @@ CORES = ["#E8175D", "#3DD68C", "#4A90D9", "#E8B04B", "#A78BFA", "#38BDF8"]
 st.sidebar.title("⚙️ Configuração")
 
 st.sidebar.caption(
-    "Pegue estes valores rodando `source exportar-outputs.sh` no CloudShell."
+    "URL e chave da API de IA: `terraform output url` e `terraform output -json chaves` "
+    "em professor/api-ia/terraform."
 )
 
-func_url = st.sidebar.text_input(
-    "Function URL da Lambda (FUNC_URL)",
-    placeholder="https://xxxxxxxx.lambda-url.us-east-1.on.aws/",
+api_url = st.sidebar.text_input(
+    "URL da API de IA",
+    placeholder="https://xxxxxxxx.execute-api.us-east-1.amazonaws.com/v1",
 ).rstrip("/")
+api_chave = st.sidebar.text_input("API key", type="password")
 
 st.sidebar.divider()
 st.sidebar.caption(
-    "Só para o caminho **direto** — o caminho via Lambda não usa. "
-    "Learner Lab → **AWS Details** → **AWS CLI: Show**."
+    "Só para o caminho **direto**: uma access key da conta onde Polly e "
+    "Transcribe funcionam. O caminho pela API não usa."
 )
 aws_key_id = st.sidebar.text_input("aws_access_key_id")
 aws_secret = st.sidebar.text_input("aws_secret_access_key", type="password")
@@ -73,17 +80,17 @@ data_bucket = st.sidebar.text_input(
 st.sidebar.divider()
 caminho = st.sidebar.radio(
     "Caminho",
-    ["Via Lambda", "Direto na AWS", "Comparar os dois"],
+    ["Via API de IA", "Direto na AWS", "Comparar os dois"],
     help="'Comparar' executa os dois e mostra tempo e resultado lado a lado.",
 )
 
 
-def precisa(via_lambda: bool) -> bool:
+def precisa(via_api: bool) -> bool:
     """Confere se a configuração necessária para aquele caminho está preenchida."""
-    if via_lambda and not func_url:
-        st.error("Preencha a **Function URL** na barra lateral.")
+    if via_api and not (api_url and api_chave):
+        st.error("Preencha a **URL** e a **API key** da API de IA na barra lateral.")
         return False
-    if not via_lambda and not (aws_key_id and aws_secret):
+    if not via_api and not (aws_key_id and aws_secret):
         st.error("Preencha as credenciais da AWS na barra lateral.")
         return False
     return True
@@ -163,10 +170,16 @@ def preparar_wav(audio: bytes, destino_hz: int = 16000) -> tuple[bytes, str]:
     return saida.getvalue(), f"convertido de {taxa} Hz / {canais} canal(is) → 16 kHz mono"
 
 
-def tts_lambda(texto: str, voz: str) -> bytes:
-    r = requests.post(f"{func_url}/tts", json={"texto": texto, "voz": voz}, timeout=60)
+def _api(rota: str, corpo: dict) -> dict:
+    """POST JSON na API de IA, com a API key no cabeçalho (o API Gateway confere)."""
+    r = requests.post(f"{api_url}{rota}", json=corpo, headers={"x-api-key": api_chave}, timeout=35)
     r.raise_for_status()
-    return r.content
+    return r.json()
+
+
+def tts_lambda(texto: str, voz: str) -> bytes:
+    r = _api("/tts", {"texto": texto, "voz": voz, "formato": "wav"})
+    return base64.b64decode(r["audio_b64"])
 
 
 def tts_direto(texto: str, voz: str) -> bytes:
@@ -183,15 +196,7 @@ def tts_direto(texto: str, voz: str) -> bytes:
 
 
 def stt_lambda(audio: bytes, idioma: str) -> dict:
-    r = requests.post(
-        f"{func_url}/stt",
-        params={"idioma": idioma, "formato": "wav"},
-        data=audio,
-        headers={"Content-Type": "application/octet-stream"},
-        timeout=70,
-    )
-    r.raise_for_status()
-    return r.json()
+    return _api("/stt", {"audio_b64": base64.b64encode(audio).decode(), "formato": "wav", "idioma": idioma})
 
 
 def stt_direto(audio: bytes, idioma: str) -> dict:
@@ -222,14 +227,7 @@ def stt_direto(audio: bytes, idioma: str) -> dict:
 
 
 def visao_lambda(imagem: bytes) -> dict:
-    r = requests.post(
-        f"{func_url}/visao",
-        data=imagem,
-        headers={"Content-Type": "application/octet-stream"},
-        timeout=60,
-    )
-    r.raise_for_status()
-    return r.json()
+    return _api("/visao", {"imagem_b64": base64.b64encode(imagem).decode()})
 
 
 def visao_direto(imagem: bytes) -> dict:
@@ -327,15 +325,15 @@ with aba_tts:
     voz = VOZES[st.selectbox("Voz", list(VOZES))]
 
     if st.button("Sintetizar", type="primary", key="btn_tts"):
-        if caminho in ("Via Lambda", "Comparar os dois") and precisa(True):
+        if caminho in ("Via API de IA", "Comparar os dois") and precisa(True):
             audio, erro, t = cronometrar(tts_lambda, texto, voz)
-            st.markdown("#### Via Lambda")
+            st.markdown("#### Via API de IA")
             if erro:
                 st.error(erro)
             else:
-                painel_tempo("Lambda", t, "nenhuma no cliente")
+                painel_tempo("API de IA", t, "API key de escopo pequeno")
                 st.audio(audio, format="audio/wav")
-                st.download_button("Baixar WAV", audio, "tts-lambda.wav", "audio/wav")
+                st.download_button("Baixar WAV", audio, "tts-api.wav", "audio/wav")
 
         if caminho in ("Direto na AWS", "Comparar os dois") and precisa(False):
             audio, erro, t = cronometrar(tts_direto, texto, voz)
@@ -384,13 +382,13 @@ with aba_stt:
 
     if st.button("Transcrever", type="primary", key="btn_stt", disabled=not audio_envio):
         audio_bytes = audio_envio
-        if caminho in ("Via Lambda", "Comparar os dois") and precisa(True):
+        if caminho in ("Via API de IA", "Comparar os dois") and precisa(True):
             r, erro, t = cronometrar(stt_lambda, audio_bytes, idioma_stt)
-            st.markdown("#### Via Lambda")
+            st.markdown("#### Via API de IA")
             if erro:
                 st.error(erro)
             else:
-                painel_tempo("Lambda", t, "nenhuma no cliente")
+                painel_tempo("API de IA", t, "API key de escopo pequeno")
                 st.success(r.get("transcricao") or "_(transcrição vazia)_")
                 st.caption(f"status: {r.get('status_stt')}")
 
@@ -414,9 +412,9 @@ with aba_visao:
         imagem = arquivo.getvalue()
 
         resultados = []
-        if caminho in ("Via Lambda", "Comparar os dois") and precisa(True):
+        if caminho in ("Via API de IA", "Comparar os dois") and precisa(True):
             r, erro, t = cronometrar(visao_lambda, imagem)
-            resultados.append(("Via Lambda", r, erro, t, "nenhuma no cliente"))
+            resultados.append(("Via API de IA", r, erro, t, "API key de escopo pequeno"))
         if caminho in ("Direto na AWS", "Comparar os dois") and precisa(False):
             r, erro, t = cronometrar(visao_direto, imagem)
             resultados.append(("Direto na AWS", r, erro, t, "access key no cliente"))
@@ -475,23 +473,24 @@ with aba_arq:
 Os dois devolvem **o mesmo resultado**. A diferença não está na saída, está em
 onde a credencial vive — e isso decide o que acontece quando algo vaza.
 
-| | Via Lambda | Direto na AWS |
+| | Via API de IA | Direto na AWS |
 |---|---|---|
-| Onde está a credencial | na execution role da Lambda (temporária, renovada sozinha) | **nesta máquina**, na barra lateral |
-| Quem se autentica | a função, com a LabRole | você, com a access key |
-| Se o código vazar | nada de útil: só a URL da função | a credencial vai junto |
-| Revogar acesso | mudar a política da role | desativar a access key e avisar todo mundo |
-| Auditoria (CloudTrail) | registra a role da função | registra a sua chave, não quem estava usando |
+| Credencial no cliente | API key da API de IA | access key de um usuário IAM |
+| O que ela abre | 4 rotas: tts, stt, sentimento, visão | tudo o que a política do usuário permite na conta |
+| Limites | cota diária e taxa por chave (usage plan) | nenhum além da política |
+| Revogar | tirar uma chave; os outros clientes seguem | desativar a access key de todo mundo que a usa |
+| Identidade na AWS | a role da função, com menor privilégio | o usuário dono da chave |
 | Latência | um salto a mais | um salto a menos |
 
 O caminho direto é mais rápido — e é exatamente por isso que ele é tentador.
 Compare os tempos nas abas: a diferença costuma ser de dezenas de milissegundos.
-É esse o preço de não ter credencial na máquina do cliente.
+É esse o preço de a credencial do cliente abrir pouco.
 
 **Perguntas para discussão**
 
-1. Este app roda no seu notebook. Se ele virasse uma página web pública, o
-   caminho direto continuaria possível? O que aconteceria com a access key?
+1. Este app roda no notebook do professor. Se ele virasse uma página web pública,
+   a API key também ficaria exposta. O que a protege mais que uma access key?
+   (Pense em escopo, cota e revogação.) E o que mudaria com um login do usuário?
 2. As credenciais do Learner Lab expiram em ~4 h. Isso é defeito ou proteção?
    Compare com uma access key de usuário IAM, que não expira.
 3. Se um aluno commitar este projeto no GitHub com a credencial preenchida, o que
@@ -499,11 +498,11 @@ Compare os tempos nas abas: a diferença costuma ser de dezenas de milissegundos
         """
     )
 
-    if func_url:
+    if api_url and api_chave:
         st.divider()
         if st.button("Testar /health"):
             try:
-                r = requests.get(f"{func_url}/health", timeout=20)
+                r = requests.get(f"{api_url}/health", headers={"x-api-key": api_chave}, timeout=20)
                 st.json(r.json())
             except Exception as e:  # noqa: BLE001
                 st.error(str(e))
