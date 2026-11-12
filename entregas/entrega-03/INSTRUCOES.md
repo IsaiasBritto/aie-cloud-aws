@@ -31,7 +31,6 @@ qc-grupo-NN-aula03/
 ├── canvas-compute.md             # N2: o canvas preenchido (template em canvas-compute.md)
 ├── terraform/                    # main.tf evoluído (Lambda + Function URL + ECR + ECS Fargate + alarme do N2.3)
 ├── function/                     # Código Python da Lambda (incluindo a tool de frete do N2.2)
-├── docker/                       # Dockerfile + app.py FastAPI (se entregue)
 └── README.md                     # Como rodar o que foi entregue
 ```
 

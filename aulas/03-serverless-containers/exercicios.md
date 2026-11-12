@@ -117,7 +117,7 @@ RUN pip install -r requirements.txt
 CMD ["python", "app.py"]
 ```
 
-Liste **5 problemas** (segurança, tamanho, eficiência, boas práticas) e proponha melhorias. Compare com o [Dockerfile do lab](lab/docker/Dockerfile).
+Liste **5 problemas** (segurança, tamanho, eficiência, boas práticas) e proponha melhorias. Compare com o [Dockerfile do lab](lab/docker/Dockerfile). Se quiser, inclua o Dockerfile corrigido como bloco de código no `entrega-grupo-aula03.md`, junto da análise.
 
 <details>
 <summary>Sugestões</summary>
