@@ -29,6 +29,8 @@ fi
 # Terraform no PATH e cache único de providers (o $HOME tem só 1 GB)
 export PATH="$HOME/bin:$PATH"
 export TF_PLUGIN_CACHE_DIR="$HOME/.terraform.d/plugin-cache"
+# O Terraform recusa um cache que não existe (ex.: depois de limpar o $HOME)
+mkdir -p "$TF_PLUGIN_CACHE_DIR"
 
 _qc_carrega() {
   # Lê um output do Terraform. Sem state (antes do apply ou depois do destroy),
