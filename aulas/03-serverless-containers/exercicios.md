@@ -14,7 +14,7 @@ Esta é a **3ª entrega de grupo** da disciplina. Os 3 níveis são **divisão d
 
 - 🟢 **Nível 1 — Básico:** quando usar serverless, IAM Role vs alternativas, cold start, Dockerfile review
 - 🟡 **Nível 2 — Intermediário:** canvas de compute da QC (5 cargas, com custo), segunda tool (cálculo de frete), observabilidade com CloudWatch
-- 🔴 **Nível 3 — Avançado:** **bônus opcional** — spec de tool para agente, benchmark de carga, CI/CD com GitHub Actions + OIDC, Fargate em produção (restart, sizing e segredos)
+- 🔴 **Nível 3 — Avançado:** **bônus opcional** — spec de tool para agente, benchmark de carga, a Lambda pelas telas da AWS e o drift, Fargate em produção (restart, sizing e segredos)
 
 **Mínimo obrigatório:** N1 + N2 cobertos. **N3 é bônus** (até +2 pts extras).
 
@@ -252,21 +252,19 @@ c) Como você arquitetaria a API da QC para a Black Friday (10× tráfego)?
 
 ---
 
-### Exercício 3.3 — Pipeline CI/CD para a Lambda
+### Exercício 3.3 — A mesma Lambda pelas telas da AWS (e o drift)
 
-Crie `.github/workflows/deploy-lambda.yml` no repositório privado do grupo que:
+Repita na sua conta a demonstração da aula: [lab/demo-lambda-console](lab/demo-lambda-console/README.md). Crie a função `demo-estoque` pelas telas da AWS, cole o código, teste com um evento JSON e abra a Function URL no navegador. Depois responda:
 
-a) Roda em cada push para `main` que altere `aula03/function/**`
-b) Faz lint (`ruff`)
-c) Roda testes (`pytest` — pelo menos 1 teste do handler, com o evento da Function URL simulado)
-d) Faz `aws lambda update-function-code` automaticamente
+a) Quais passos o Terraform do lab fazia por você? Quais você esqueceria se fizesse sempre pelas telas? (pense no log group e na retenção, nas duas permissões da URL e na limpeza)
 
-**Pontos extras:**
+b) **Drift:** com a infraestrutura do lab no ar, mude a memória da Lambda do lab pelo console (por exemplo, de 256 para 512 MB) e rode `terraform plan`. O que ele mostra? O que acontece no `terraform apply`? Por que isso importa quando um time inteiro mexe na mesma conta?
 
-- Autentique com **OIDC** (`aws-actions/configure-aws-credentials` + role com trust no `token.actions.githubusercontent.com`), sem access key guardada em secret
-- Publique uma **versão** e mova um **alias** `prod` só depois do teste (`aws lambda publish-version` + `update-alias`)
+c) Para a QC, quando faz sentido criar algo pelas telas e quando não faz? Dê um exemplo de cada.
 
-> **Limitação do Learner Lab:** ele não deixa criar o provedor OIDC nem a role. Escreva o Terraform/IAM que seria necessário e explique o fluxo; para testar, use as credenciais temporárias de **AWS Details** do Learner Lab como secrets do repositório (expiram em ~4 h — e é exatamente por isso que OIDC é o certo).
+Entregue as respostas no `entrega-grupo-aula03.md`, com o trecho da saída do `terraform plan` do item b.
+
+> Lembre de apagar a `demo-estoque` e o log group dela no fim (passo 8 do roteiro): eles não fazem parte do Terraform, então o `terraform destroy` não os apaga.
 
 ---
 
@@ -295,7 +293,7 @@ A entrega é **um ZIP por grupo** (`entrega-grupo-NN-aula03.zip`) no Portal FIAP
 | Cabeçalho do grupo + distribuição do trabalho | ✅ Sim | 1 pt (Critério 4) |
 | 🟢 N1 — Exercícios 1.1 (quando usar serverless), 1.2 (IAM Role vs alternativas), 1.3 (cold start), 1.4 (Dockerfile review) | ✅ Sim | 3 pts (Critério 1) |
 | 🟡 N2 — 2.1 [canvas de compute](../../entregas/entrega-03/canvas-compute.md) (5 cargas, com custo), 2.2 (segunda tool: cálculo de frete), 2.3 (CloudWatch) | ✅ Sim | 3 pts (Critério 2) + 2 pts qualidade técnica (Critério 3) |
-| 🔴 N3 — 3.1 (spec de tool de agente), 3.2 (benchmark), 3.3 (CI/CD GitHub Actions + OIDC), 3.4 (Fargate em produção) | 🎁 Bônus | até +2 pts extras |
+| 🔴 N3 — 3.1 (spec de tool de agente), 3.2 (benchmark), 3.3 (a Lambda pelas telas e o drift), 3.4 (Fargate em produção) | 🎁 Bônus | até +2 pts extras |
 | Reflexão coletiva ao final, com a linha do canvas de cada membro (uma carga real do trabalho, anonimizada) | ✅ Sim | 1 pt (Critério 5) |
 | **Total da entrega** | | **10 pts** (10% da nota final) |
 

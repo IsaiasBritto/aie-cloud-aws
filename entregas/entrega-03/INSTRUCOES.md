@@ -13,7 +13,7 @@
 | Cabeçalho do grupo + distribuição do trabalho | ✅ Sim | 1 pt (Critério 4) |
 | 🟢 N1 — Exercícios 1.1 (quando usar serverless), 1.2 (IAM Role vs alternativas e a policy mínima da ferramenta), 1.3 (cold start), 1.4 (Dockerfile review) | ✅ Sim | 3 pts (Critério 1) |
 | 🟡 N2 — Exercício 2.1 no [canvas de compute](canvas-compute.md) (5 cargas, com custo), 2.2 (segunda tool: cálculo de frete), 2.3 (CloudWatch) | ✅ Sim | 3 pts (Critério 2) + 2 pts qualidade técnica (Critério 3) |
-| 🔴 N3 — 3.1 (spec de tool de agente), 3.2 (benchmark), 3.3 (CI/CD GitHub Actions + OIDC), 3.4 (Fargate em produção) | 🎁 Bônus | até +2 pts extras |
+| 🔴 N3 — 3.1 (spec de tool de agente), 3.2 (benchmark), 3.3 (a Lambda pelas telas e o drift), 3.4 (Fargate em produção) | 🎁 Bônus | até +2 pts extras |
 | Reflexão coletiva ao final, com a linha do canvas de cada membro (uma carga real do trabalho, anonimizada) | ✅ Sim | 1 pt (Critério 5) |
 | **Total** | | **10 pts** |
 
@@ -29,13 +29,10 @@ Nome: `entrega-grupo-NN-aula03.zip`.
 qc-grupo-NN-aula03/
 ├── entrega-grupo-aula03.md       # ⭐ documento principal (template em ../template-entrega-grupo.md)
 ├── canvas-compute.md             # N2: o canvas preenchido (template em canvas-compute.md)
-├── README.md                     # Como rodar o que foi entregue
 ├── terraform/                    # main.tf evoluído (Lambda + Function URL + ECR + ECS Fargate + alarme do N2.3)
 ├── function/                     # Código Python da Lambda (incluindo a tool de frete do N2.2)
 ├── docker/                       # Dockerfile + app.py FastAPI (se entregue)
-├── .github/workflows/            # Workflow CI/CD (se N3.3)
-└── diagramas/
-    └── arquitetura-qc-aula03.png # Diagrama da QC com a camada de API/compute
+└── README.md                     # Como rodar o que foi entregue
 ```
 
 **NÃO incluir:** `terraform.tfstate*`, `.env`, `*.pem`, `__pycache__/`, `.venv/`, imagens Docker locais.
