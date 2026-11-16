@@ -22,6 +22,17 @@ source ~/.bashrc
 terraform -version && docker --version && aws sts get-caller-identity
 ```
 
+A home do CloudShell tem 1 GB, e os providers do Terraform das aulas anteriores ocupam boa
+parte dela. Se o `df` abaixo mostrar mais de 80% em uso, libere espaço antes de seguir (nada
+disso apaga estado; o `init` baixa o provider de novo):
+
+```bash
+df -h ~ | tail -1
+rm -rf ~/.terraform.d/plugin-cache
+find ~/aie-cloud -name .terraform -type d -prune -exec rm -rf {} +
+export TF_PLUGIN_CACHE_DIR=/tmp/tf-cache && mkdir -p $TF_PLUGIN_CACHE_DIR
+```
+
 > O CloudShell já vem com AWS CLI, Docker e a **credencial da sua sessão**. Não há
 > `login`, não há chave para copiar, não há provedor para registrar — o erro nº 1 da
 > trilha Azure (`az provider register`) simplesmente não existe aqui.

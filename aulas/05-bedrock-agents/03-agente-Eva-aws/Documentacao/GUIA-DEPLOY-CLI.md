@@ -28,6 +28,17 @@ source ~/.bashrc
 terraform -version
 ```
 
+A home do CloudShell tem 1 GB, e os providers do Terraform das aulas anteriores ocupam boa
+parte dela. Se o `df` abaixo mostrar mais de 80% em uso, libere espaço antes de seguir (nada
+disso apaga estado; o `init` baixa o provider de novo):
+
+```bash
+df -h ~ | tail -1
+rm -rf ~/.terraform.d/plugin-cache
+find ~/aie-cloud -name .terraform -type d -prune -exec rm -rf {} +
+export TF_PLUGIN_CACHE_DIR=/tmp/tf-cache && mkdir -p $TF_PLUGIN_CACHE_DIR
+```
+
 ## Passo 1 — Configurar
 
 ```bash

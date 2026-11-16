@@ -28,7 +28,7 @@ Lab2/
 ├── agente/openapi-agente.json  as 5 operações que o agente recebe (as descrições são prompt)
 ├── api/                      FastAPI com 14 operações (docs em /docs)
 │   ├── servicos/             memória, fila (máquina de estados), armazenamento
-│   └── testes/               22 testes, sem rede e sem AWS
+│   └── testes/               23 testes, sem rede e sem AWS
 ├── gatilho/
 │   ├── amostras/             3 notas: normal, reenvio idêntico, nota com injeção
 │   ├── disparador.py         --semear | --s3 BUCKET | --sqs URL
@@ -44,7 +44,7 @@ Lab2/
 
 ```bash
 make instalar
-make testar                 # 22 testes verdes
+make testar                 # 26 passed
 make api                    # terminal 1 → http://localhost:8000/docs
 make web                    # terminal 2 → mesa do auditor
 make semear && make volta   # terminal 3; rode `make volta` 4 vezes

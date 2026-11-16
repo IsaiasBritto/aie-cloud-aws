@@ -15,14 +15,14 @@ Escolha um caminho:
 ### Passo 1 · Instalar e testar (5 min)
 
 ```bash
-git clone https://github.com/IsaiasBritto/aie-cloud-aws.git
-cd aie-cloud-aws/aulas/05-bedrock-agents/Lab2
+git clone https://github.com/IsaiasBritto/aie-cloud-aws.git aie-cloud
+cd aie-cloud/aulas/05-bedrock-agents/Lab2
 python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
 make instalar        # sem make: pip install -r requirements.txt
-make testar          # esperado: 25 passed
+make testar          # esperado: 26 passed
 ```
 
-> **Por que 25 e não 22?** São 22 funções de teste; uma delas roda com 4 valores de auditor
+> **Por que 26 e não 23?** São 23 funções de teste; uma delas roda com 4 valores de auditor
 > (`None`, `""`, `"deva"`, `"DEVA"`), e o pytest conta cada valor como um caso.
 
 ### Passo 2 · Subir a API e a mesa do auditor (5 min)
@@ -91,12 +91,26 @@ O CloudShell não abre o Streamlit, mas roda a API, o agente e o gatilho de verd
 
 ### Passo 1 · Preparar
 
+A home do CloudShell tem 1 GB, e quem vem das aulas anteriores costuma chegar com ela quase
+cheia de providers do Terraform. Confira antes de começar:
+
 ```bash
-git clone https://github.com/IsaiasBritto/aie-cloud-aws.git
-cd aie-cloud-aws/aulas/05-bedrock-agents/Lab2
+df -h ~ | tail -1      # Use% acima de 80%? Rode as duas linhas abaixo
+rm -rf ~/.terraform.d/plugin-cache
+find ~/aie-cloud -name .terraform -type d -prune -exec rm -rf {} +
+```
+
+Nenhuma das duas apaga estado: o `terraform.tfstate` fica onde está e o `init` baixa o provider
+de novo. Nesta aula o cache vai para o `/tmp`, que tem espaço de sobra (some quando a sessão
+reinicia, e aí o `init` baixa outra vez).
+
+```bash
+export TF_PLUGIN_CACHE_DIR=/tmp/tf-cache && mkdir -p $TF_PLUGIN_CACHE_DIR
+cd ~ && git clone https://github.com/IsaiasBritto/aie-cloud-aws.git aie-cloud 2>/dev/null || git -C ~/aie-cloud pull
+cd ~/aie-cloud/aulas/05-bedrock-agents/Lab2
 python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate
 pip install --no-cache-dir -r requirements.txt
-python -m pytest            # 25 passed
+python -m pytest            # 26 passed
 nohup python -m uvicorn api.principal:aplicacao --port 8000 > api.log 2>&1 &
 export API_URL=http://localhost:8000
 ```
@@ -155,6 +169,7 @@ make limpar
 | Sintoma | Causa provável | O que fazer |
 |---|---|---|
 | `AccessDenied ... GetBucketObjectLockConfiguration` no `terraform apply` | O Learner Lab bloqueia essa leitura, que o `aws_s3_bucket` faz sempre. Os labs agora criam o bucket pelo módulo `modulos/bucket-s3` (AWS CLI) | `git -C ~/aie-cloud pull`, `terraform init`, `terraform state rm aws_s3_bucket.notas` e `terraform apply` de novo. O módulo reaproveita o bucket que já foi criado |
+| `No space left on device` no `terraform init` ou no `pip` | Home de 1 GB cheia | Passo 1 do Caminho B: apague o cache antigo e use o `/tmp/tf-cache` |
 | `make: command not found` (Windows) | Sem make | Rode o comando que está ao lado do alvo no `Makefile`. |
 | Streamlit: "API fora do ar" | Terminal 1 parado | Suba `make api` de novo. |
 | Volta 1 sai `duplicado` | Fila de uma rodada anterior | Apague a pasta `dados/` e rode `make semear` de novo. |

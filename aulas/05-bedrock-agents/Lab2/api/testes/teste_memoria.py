@@ -65,3 +65,13 @@ def teste_recusar_remove_sem_gravar(memoria, repo):
     p = memoria.propor("pedágio -> viagem_aerea", "d-0004")
     memoria.recusar(p["id"], "Bruno", "pedágio não é viagem aérea")
     assert memoria.pendentes() == [] and repo.ler_texto("MEMORY.md") == antes
+
+
+def teste_apagar_dados_com_a_api_no_ar_nao_derruba_nem_esquece(memoria, repo):
+    # O guia manda apagar dados/ quando a fila sobra de outra rodada; a API pode estar no ar.
+    import shutil
+
+    shutil.rmtree(repo.diretorio)
+    memoria.propor("estacionamento em aeroporto -> viagem_aerea", "nota-001")
+    assert (repo.diretorio / "MEMORY.md").exists()
+    assert "corrida de aplicativo" in repo.ler_texto("MEMORY.md")

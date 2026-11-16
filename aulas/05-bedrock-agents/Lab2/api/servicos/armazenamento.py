@@ -19,21 +19,29 @@ from typing import Any
 class Repositorio:
     def __init__(self, diretorio: Path, semente_memoria: Path) -> None:
         self.diretorio = Path(diretorio)
-        self.diretorio.mkdir(parents=True, exist_ok=True)
+        self.semente_memoria = Path(semente_memoria)
         self.trava = threading.RLock()
+        self._garantir()
+
+    def _garantir(self) -> None:
+        """Recria a pasta e a semente do MEMORY.md se alguém apagou dados/ com a API no ar."""
+        self.diretorio.mkdir(parents=True, exist_ok=True)
         memoria = self.diretorio / "MEMORY.md"
         if not memoria.exists():
-            shutil.copyfile(semente_memoria, memoria)
+            shutil.copyfile(self.semente_memoria, memoria)
 
     def caminho(self, nome: str) -> Path:
         return self.diretorio / nome
 
     def ler_texto(self, nome: str) -> str:
+        with self.trava:
+            self._garantir()
         p = self.caminho(nome)
         return p.read_text(encoding="utf-8") if p.exists() else ""
 
     def gravar_texto(self, nome: str, conteudo: str) -> None:
         with self.trava:
+            self._garantir()
             p = self.caminho(nome)
             temporario = p.with_suffix(p.suffix + ".tmp")
             temporario.write_text(conteudo, encoding="utf-8")
