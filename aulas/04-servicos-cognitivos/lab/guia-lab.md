@@ -32,6 +32,25 @@ Wrap-up  — terraform destroy + verificação de custo                       ~5
 
 Cada passo segue o ritmo das aulas anteriores: **um comando `qc`, a verificação no console, uma pergunta para o grupo.** Os blocos de teoria acontecem entre os labs.
 
+> **A API de IA só existe durante a aula.** No fim do encontro o professor desliga a API e as chaves dos grupos param de funcionar. Tudo o que depende dela (a transcrição do Lab 2 e o sentimento do Lab 3) tem que ser **salvo na hora**, no arquivo de evidências descrito abaixo. O resto da entrega roda depois da aula, pela LabRole.
+
+### Evidências para a Entrega 04
+
+Crie o arquivo no repositório do grupo logo no começo da aula e vá completando ao fim de cada lab:
+
+```bash
+mkdir -p ~/qc-grupo-NN/aula04 && touch ~/qc-grupo-NN/aula04/evidencias-aula04.md
+```
+
+| Lab | O que salvar | Precisa da API de IA? |
+|---|---|---|
+| Lab 2 | A transcrição do `bbc_trecho.mp3` (saída do `qc transcreve bbc_trecho.mp3`) | **Sim: só em aula** |
+| Lab 3 | A saída do `qc tabela reviews` com o sentimento das 10 reviews | **Sim: só em aula** |
+| Lab 3 | Os campos que o Textract leu da etiqueta (saída do `qc documento`) | Não |
+| Lab 4 | O status de moderação das fotos testadas (`qc tabela reviews` depois do `qc foto-review`) | Não |
+
+Cole a saída do terminal como texto, num bloco de código. Não cole links `ouvir` (eles carregam a credencial temporária da sessão) nem a chave do grupo.
+
 > **Regra de ouro:** `terraform destroy` ao final. Rekognition, Textract e DynamoDB on-demand cobram por chamada; o segredo, US$ 0,40 por mês proporcional enquanto existir.
 
 ---
@@ -156,6 +175,8 @@ Abra [function_app.py](function/function_app.py) e ache `_credencial_api()` e `_
 
 **✅ Checkpoint L₂:** o link toca o áudio e a transcrição volta em português.
 
+> **Salve agora no `evidencias-aula04.md`:** a transcrição do `bbc_trecho.mp3`. Depois da aula a API de IA sai do ar e não dá para gerar de novo.
+
 ---
 
 ## Lab 3 — Ler: sentimento e documento (Bloco 3)
@@ -188,6 +209,8 @@ A mesma imagem passa por duas chamadas do Textract, pela LabRole:
 > **Para discutir:** o FORMS custa 33 vezes mais. Quando o OCR puro basta? E repare na limitação: o Textract entende formulários em português, mas as *Queries* ("qual o CEP?") e a leitura de notas e recibos são só em inglês. É um dos motivos para um LLM entrar na Aula 5.
 
 **✅ Checkpoint L₃:** a distribuição de sentimentos bate com as estrelas? O Textract achou pedido, CEP e valor declarado?
+
+> **Salve agora no `evidencias-aula04.md`:** a saída do `qc tabela reviews` com o sentimento das 10 reviews (só em aula) e a saída do `qc documento`. O exercício 2.1 e o bônus 3.1 usam esse sentimento.
 
 ---
 
@@ -253,15 +276,14 @@ Abre em `http://localhost:8501`.
 
 ### Passo 2 — Primeiro só a API de IA
 
-Na barra lateral, preencha **só** a URL da API de IA e a **chave do grupo**: os mesmos valores que você colou no `qc chave`. Se não tiver mais à mão, recupere do cofre do grupo, no CloudShell:
+Na barra lateral, preencha **só** a URL da API de IA e a **chave do grupo**: os mesmos valores que você colou no `qc chave`. Se não tiver mais à mão, o `qc app` junta no CloudShell tudo o que a barra lateral pede, inclusive o que o Passo 3 vai usar:
 
 ```bash
 source ~/aie-cloud/aulas/04-servicos-cognitivos/lab/qc.sh
-aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query SecretString --output text \
-  | python3 -c 'import json,sys; d=json.load(sys.stdin); print("URL  :", d["url"]); print("Chave:", d["chave"])'
+qc app
 ```
 
-Copie os dois valores para o app e limpe a tela (`clear`). Não cole a chave no chat da turma.
+Copie a URL e a chave para o app e limpe a tela (`clear`). Não cole esses valores no chat da turma.
 
 Deixe as credenciais da AWS em branco, escolha **Via API de IA** e use as três primeiras abas.
 
@@ -278,7 +300,7 @@ Tudo funciona, e o app não tem credencial nenhuma da AWS. Essa é a demonstraç
 
 ### Passo 3 — Agora o caminho direto
 
-No Learner Lab, abra **AWS Details** → **AWS CLI: Show** e copie `aws_access_key_id`, `aws_secret_access_key` e `aws_session_token` para a barra lateral. Deixe a **Região** em `us-east-1` e preencha o **DATA_BUCKET** com o bucket do grupo (`echo $DATA_BUCKET` no CloudShell): o Transcribe só lê áudio do S3, e sem o bucket a aba de transcrição para antes de chegar no serviço. Escolha **Comparar os dois** e rode as três abas.
+Copie para a barra lateral as três credenciais da sessão que o `qc app` mostrou (`aws_access_key_id`, `aws_secret_access_key` e `aws_session_token`). Elas também estão no Learner Lab, em **AWS Details** → **AWS CLI: Show**, e essa versão dura a sessão inteira; a do CloudShell vence antes, e o `qc app` mostra quando. Deixe a **Região** em `us-east-1` e preencha o **DATA_BUCKET** com o bucket do grupo (`echo $DATA_BUCKET` no CloudShell): o Transcribe só lê áudio do S3, e sem o bucket a aba de transcrição para antes de chegar no serviço. Escolha **Comparar os dois** e rode as três abas.
 
 - **Visão:** funciona pelos dois caminhos. Compare os tempos: o direto é mais rápido, com um salto a menos.
 - **Fala e transcrição:** o caminho direto devolve **AccessDenied**. A credencial da sessão não tem Polly nem Transcribe; a API de IA tem.
@@ -348,12 +370,9 @@ Somadas à tool de catálogo da Aula 3 (`GET /produtos`), o agente busca produto
 
 ## Tarefa pós-aula
 
-1. Atualizar o `entrega-grupo-aula04.md` com:
-   - a transcrição em PT-BR do `bbc_trecho.mp3`
-   - a distribuição de sentimentos das 10 reviews, comparada com as estrelas
-   - os campos que o Textract extraiu da etiqueta
-   - o status de moderação das fotos que o grupo testou
-2. Resolver pelo menos N1 + N2 dos exercícios
+1. Conferir o `evidencias-aula04.md` montado em aula. O que depende da API de IA (transcrição e sentimento) não pode ser refeito depois; o Textract e a moderação podem, num Learner Lab novo, com `terraform apply` e os comandos do lab.
+2. Levar para o `entrega-grupo-aula04.md` a distribuição de sentimentos das 10 reviews comparada com as estrelas.
+3. Resolver pelo menos N1 + N2 dos exercícios. O 2.1 não precisa da API de IA: veja o modo `simular` no enunciado.
 
 ---
 

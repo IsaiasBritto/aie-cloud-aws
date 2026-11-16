@@ -93,6 +93,20 @@ Uso por grupo: **API Gateway → Usage plans → `qc-api-ia-...-turma` → Assoc
 
 Revogar um grupo: tire o nome de `grupos` no `terraform.tfvars` e rode `terraform apply`. Trocar todas as chaves: `terraform apply -replace='aws_api_gateway_api_key.grupo["grupo-01"]'` (um por grupo) ou destroy e apply.
 
+## No fim de cada aula
+
+As chaves foram mostradas aos grupos e circulam em CloudShells e notebooks. Não deixe a API no ar depois do encontro. Duas saídas:
+
+```bash
+# A) desligar tudo (a próxima turma faz um apply novo, com chaves novas)
+terraform destroy
+
+# B) manter a API e invalidar as chaves vistas em aula (uma linha por grupo)
+terraform apply -replace='aws_api_gateway_api_key.grupo["grupo-01"]' -replace='aws_api_gateway_api_key.grupo["grupo-02"]'
+```
+
+Os alunos foram avisados de que a API só existe durante a aula: a transcrição e o sentimento são salvos no `evidencias-aula04.md`, e o exercício 2.1 tem um modo `simular` que dispensa a API.
+
 ## Depois da disciplina
 
 ```bash

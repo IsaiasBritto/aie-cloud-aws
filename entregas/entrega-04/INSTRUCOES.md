@@ -28,17 +28,27 @@ Nome: `entrega-grupo-NN-aula04.zip`.
 ```
 qc-grupo-NN-aula04/
 ├── entrega-grupo-aula04.md       # ⭐ documento principal (template em ../template-entrega-grupo.md)
+├── evidencias-aula04.md          # as saídas salvas em aula (ver abaixo)
 ├── README.md                     # Como rodar o que foi entregue (qc publica + as rotas novas)
 ├── terraform/                    # o Terraform do lab, com o que o N2/N3 exigir
 ├── function/                     # function_app.py com a redação de PII do N2.1 (e rotas do N3, se houver)
 └── scripts/                      # Python: re-indexação com embeddings (se N3.1)
 ```
 
-Anexar também no `entrega-grupo-aula04.md`:
+### Anexos
 
-- 3 reviews processadas com o schema completo, com o texto antes e depois da redação de PII (N2.1)
-- a transcrição do `bbc_trecho.mp3`, os campos que o Textract leu da etiqueta e o status de moderação das fotos testadas
-- prints das métricas do Custom Labels, se N3.2
+A API de IA do professor (voz e sentimento) **só funciona durante a aula**. Por isso os anexos se dividem em dois grupos:
+
+| Anexo | Onde vai | Quando é gerado |
+|---|---|---|
+| Transcrição do `bbc_trecho.mp3` (Lab 2) | `evidencias-aula04.md` | **Em aula**: depois não dá para gerar de novo |
+| Saída do `qc tabela reviews` com o sentimento das 10 reviews (Lab 3) | `evidencias-aula04.md` | **Em aula** |
+| Campos que o Textract leu da etiqueta (Lab 3) | `evidencias-aula04.md` | Em aula ou depois, num Learner Lab novo |
+| Status de moderação das fotos testadas (Lab 4) | `evidencias-aula04.md` | Em aula ou depois, num Learner Lab novo |
+| 3 reviews com PII: texto original, texto redigido e o corpo que seria enviado (N2.1, modo `simular`) | `entrega-grupo-aula04.md` | Depois da aula: não precisa da API |
+| Prints das métricas do Custom Labels (só se fizer o N3.2) | `entrega-grupo-aula04.md` | Depois da aula |
+
+O grupo que não salvou a transcrição ou o sentimento em aula registra isso no `evidencias-aula04.md` e segue com o resto: o N2.1 vale pelo código e pela redação, não pelo sentimento.
 
 **NÃO incluir:** `terraform.tfstate*`, `.env`, `*.pem`, `__pycache__/`, áudio/imagem binários (>5 MB), chaves de API (nem a do grupo para a API de IA).
 

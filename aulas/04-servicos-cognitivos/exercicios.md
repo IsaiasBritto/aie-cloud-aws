@@ -148,7 +148,16 @@ Para cada cenário da QC, escolha a capacidade (**DetectLabels**, **DetectText**
 
 O L₃ fez sentimento + entidades, mandando o texto das reviews para a API de IA, que é um serviço **fora da sua conta**. Estenda a rota `/analisar-reviews` (ou crie `/analisar-reviews-v2`) com:
 
-a) **PII antes de sair da conta:** antes de chamar a API de IA, redija CPF, e-mail e telefone **na sua Lambda**, com regex. Teste com reviews novas que tenham esses dados (grave com `put_item`). Explique por que a redação tem que acontecer antes da chamada e não depois, à luz da LGPD (quem é o operador do dado quando ele chega ao terceiro?). Pesquise se o `DetectPiiEntities` do Comprehend aceita português e diga se ele resolveria o problema.
+> **A API de IA só existe durante a aula.** Este exercício foi desenhado para ser feito depois, sem ela: o que vale ponto é a redação acontecer **antes** do texto sair da conta, e isso se prova sem chamar o Comprehend.
+
+a) **PII antes de sair da conta:** antes de chamar a API de IA, redija CPF, e-mail e telefone **na sua Lambda**, com regex. Teste com reviews novas que tenham esses dados (grave com `put_item`).
+
+   **Modo `simular`:** a rota aceita `?simular=1`. Nesse modo ela redige o texto e devolve o **corpo exato que seria enviado** à API de IA, sem enviar. É assim que vocês testam depois da aula:
+
+   ```bash
+   curl -s -X POST "${FUNC_URL}analisar-reviews-v2?simular=1"
+   # {"enviaria": {"textos": ["Ótimo, me liguem no [TELEFONE]", ...], "idioma": "pt"}, "reviews": [...]}
+   ``` Explique por que a redação tem que acontecer antes da chamada e não depois, à luz da LGPD (quem é o operador do dado quando ele chega ao terceiro?). Pesquise se o `DetectPiiEntities` do Comprehend aceita português e diga se ele resolveria o problema.
 
 b) **Sentimento por aspecto (desenho):** o Comprehend tem `DetectTargetedSentiment` ("entrega" → negativo, "qualidade" → positivo). Confira na documentação os idiomas suportados. Se o português não estiver, compare duas saídas: traduzir antes com o Amazon Translate (custo, risco de distorcer o sentido) ou pedir os aspectos a um LLM. Não precisa implementar: o Learner Lab não libera nenhum dos dois.
 
@@ -174,7 +183,7 @@ d) **Persistência estruturada** no DynamoDB (lembre: números decimais vão com
 }
 ```
 
-**Entrega:** código atualizado (a redação do item a) + 3 reviews processadas, com o texto antes e depois da redação, no `entrega-grupo-aula04.md`.
+**Entrega:** código atualizado (a redação do item a, com o modo `simular`) e, no `entrega-grupo-aula04.md`, 3 reviews com PII mostrando **o texto original, o texto redigido e o corpo que seria enviado** à API de IA. O `sentimento` e o `sentimento_score` vêm do `evidencias-aula04.md` coletado em aula; para as reviews novas, que não passaram pela API, deixe `"—"`. Isso não tira ponto.
 
 ---
 
@@ -214,7 +223,7 @@ d) **Recomende** — e, se fizer sentido, proponha um híbrido (Custom Labels no
 
 A Aula 2 gerou embeddings com MiniLM no CloudShell. Agora, use os **resultados de IA desta aula** para enriquecer a busca:
 
-a) Para cada review analisada no DynamoDB, gere um embedding do texto (mesmo modelo da Aula 2, com `fastembed`) e grave numa tabela `reviews_vetor` no RDS da Aula 2 (ou num RDS novo) com o sentimento (o que a API de IA devolveu no L₃) como coluna.
+a) Para cada review analisada no DynamoDB, gere um embedding do texto (mesmo modelo da Aula 2, com `fastembed`) e grave numa tabela `reviews_vetor` no RDS da Aula 2 (ou num RDS novo) com o sentimento como coluna. Use o sentimento das 10 reviews salvo no `evidencias-aula04.md` em aula: a API de IA não está disponível depois do encontro.
 b) Implemente a consulta: "reviews **negativas** que falam de **entrega atrasada**" = filtro `sentimento = 'NEGATIVE'` + `ORDER BY embedding <=> :consulta`.
 c) Compare com a mesma busca só por palavra (`ILIKE '%entrega%'`).
 d) **Produção:** troque o MiniLM pelo **Amazon Titan Text Embeddings V2** (1024 dimensões) no Bedrock. Estime o custo de vetorizar 30M de reviews (~80 tokens cada) a ~US$ 0,02 por 1M tokens.

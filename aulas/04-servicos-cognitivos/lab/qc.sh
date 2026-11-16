@@ -126,6 +126,9 @@ Uso: qc <comando>
   qc foto-review ID [arquivo]     anexa uma foto à review; a moderação roda por evento
   qc tabela reviews|produtos      o que está gravado no DynamoDB
 
+  Lab 5 · QC Cognitive Studio
+  qc app                          os valores da barra lateral do app (mostra segredos!)
+
 Sessão nova do CloudShell? Rode de novo:
   source ~/aie-cloud/aulas/04-servicos-cognitivos/lab/qc.sh
 AJUDA
@@ -178,6 +181,39 @@ _qc_rotulos() {
   echo "→ Rekognition DetectLabels em ${img##*/} (cerca de US\$ 0,001 por imagem)"
   aws rekognition detect-labels --image-bytes "fileb://$img" --max-labels 5 \
     --query 'Labels[].[Name, Confidence]' --output table
+}
+
+_qc_app() {
+  # Junta tudo o que a barra lateral do app pede. Mostra a chave do grupo e a
+  # credencial da sessão: rode com o projetor desligado e limpe a tela depois.
+  _qc_precisa SECRET_NAME DATA_BUCKET || return 1
+  local seg cred
+  seg="$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" \
+           --query SecretString --output text 2>/dev/null)"
+  cred="$(aws configure export-credentials --format process 2>/dev/null)"
+  QC_SEG="$seg" QC_CRED="$cred" python3 - "$DATA_BUCKET" "${AWS_REGION:-us-east-1}" <<'PY'
+import json, os, sys
+bucket, regiao = sys.argv[1], sys.argv[2]
+def carrega(var):
+    try:
+        return json.loads(os.environ.get(var) or "{}")
+    except ValueError:
+        return {}
+seg, cred = carrega("QC_SEG"), carrega("QC_CRED")
+print("\n⚠  Valores sensíveis: não projete, não cole no chat da turma, rode 'clear' depois.\n")
+print("── Via API de IA ─────────────────────────────")
+print("URL da API de IA      :", seg.get("url") or "(vazio: rode qc chave)")
+print("API key               :", seg.get("chave") or "(vazio: rode qc chave)")
+print("\n── Caminho direto (Learner Lab) ─────────────")
+print("aws_access_key_id     :", cred.get("AccessKeyId", "(não encontrado)"))
+print("aws_secret_access_key :", cred.get("SecretAccessKey", "(não encontrado)"))
+print("aws_session_token     :", cred.get("SessionToken", "(não encontrado)"))
+print("Região                :", regiao)
+print("DATA_BUCKET           :", bucket)
+if cred.get("Expiration"):
+    print("\nA credencial do CloudShell vence em", cred["Expiration"], "(UTC).")
+    print("Se o app passar a dar ExpiredToken, rode qc app de novo ou use AWS Details no Learner Lab.")
+PY
 }
 
 _qc_chave() {
@@ -367,6 +403,7 @@ qc() {
     publica)     _qc_publica ;;
     semeia)      _qc_semeia ;;
     rotulos)     _qc_rotulos "${2:-}" ;;
+    app)         _qc_app ;;
     chave)       _qc_chave ;;
     fala)        _qc_fala "${2:-}" "${3:-}" ;;
     transcreve)  _qc_transcreve "${2:-}" ;;
