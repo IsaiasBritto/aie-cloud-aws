@@ -128,6 +128,7 @@ Uso: qc <comando>
 
   Lab 5 · QC Cognitive Studio
   qc app                          os valores da barra lateral do app (mostra segredos!)
+  qc reativa                      sobe a base de novo (sessão caiu, Learner Lab resetado, destroy)
 
 Sessão nova do CloudShell? Rode de novo:
   source ~/aie-cloud/aulas/04-servicos-cognitivos/lab/qc.sh
@@ -183,13 +184,47 @@ _qc_rotulos() {
     --query 'Labels[].[Name, Confidence]' --output table
 }
 
+_qc_base_no_ar() {
+  # A base existe de verdade? O state pode ter outputs e a conta não ter mais
+  # nada (Learner Lab resetado), por isso confere o bucket e o segredo na AWS.
+  [ -n "${DATA_BUCKET:-}" ] && [ -n "${SECRET_NAME:-}" ] \
+    && aws s3api head-bucket --bucket "$DATA_BUCKET" >/dev/null 2>&1 \
+    && aws secretsmanager describe-secret --secret-id "$SECRET_NAME" >/dev/null 2>&1
+}
+
+_qc_reativa() {
+  echo "→ 1/2 terraform apply (recria só o que faltar; ~1 min)"
+  terraform -chdir="$_qc_tf" init -input=false >/dev/null \
+    && terraform -chdir="$_qc_tf" apply -auto-approve -input=false \
+    || { echo "ERRO no terraform. Confira a sessão do Learner Lab (Start Lab) e tente de novo." >&2; return 1; }
+  _qc_carrega
+  echo "→ 2/2 conferindo a base"
+  if ! _qc_base_no_ar; then
+    echo "ERRO: a base ainda não respondeu. Rode qc status." >&2; return 1
+  fi
+  echo "✓ Base no ar: $DATA_BUCKET · $SECRET_NAME"
+  if [ -z "$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" \
+            --query SecretString --output text 2>/dev/null)" ]; then
+    echo "  O segredo foi recriado vazio: rode qc chave (URL e chave do grupo) antes do qc app."
+  fi
+  echo "  Os Labs 1 a 4 precisam também de: qc publica e qc semeia. O Lab 5 não."
+}
+
 _qc_app() {
   # Junta tudo o que a barra lateral do app pede. Mostra a chave do grupo e a
   # credencial da sessão: rode com o projetor desligado e limpe a tela depois.
-  _qc_precisa SECRET_NAME DATA_BUCKET || return 1
+  if ! _qc_base_no_ar; then
+    echo "A base do lab não está no ar (sessão nova, Learner Lab resetado ou destroy)." >&2
+    echo "Rode: qc reativa   e depois: qc chave   e então: qc app" >&2
+    return 1
+  fi
   local seg cred
   seg="$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" \
            --query SecretString --output text 2>/dev/null)"
+  if [ -z "$seg" ]; then
+    echo "O segredo $SECRET_NAME está vazio: rode qc chave (URL e chave do grupo) e depois qc app." >&2
+    return 1
+  fi
   cred="$(aws configure export-credentials --format process 2>/dev/null)"
   QC_SEG="$seg" QC_CRED="$cred" python3 - "$DATA_BUCKET" "${AWS_REGION:-us-east-1}" <<'PY'
 import json, os, sys
@@ -404,6 +439,7 @@ qc() {
     semeia)      _qc_semeia ;;
     rotulos)     _qc_rotulos "${2:-}" ;;
     app)         _qc_app ;;
+    reativa)     _qc_reativa ;;
     chave)       _qc_chave ;;
     fala)        _qc_fala "${2:-}" "${3:-}" ;;
     transcreve)  _qc_transcreve "${2:-}" ;;

@@ -272,7 +272,17 @@ source ~/aie-cloud/aulas/04-servicos-cognitivos/lab/qc.sh
 qc app
 ```
 
-O `qc app` junta numa tela tudo o que a barra lateral do app pede:
+Antes de mostrar qualquer valor, o `qc app` confere se a base do lab está no ar: o bucket e o segredo do grupo existem de verdade na conta. Se a sessão caiu, se o Learner Lab foi resetado ou se alguém rodou o `destroy`, ele para e avisa. **Não siga com o lab nesse caso**: reative a base primeiro.
+
+```bash
+qc reativa     # terraform apply: recria só o que faltar (~1 min)
+qc chave       # o segredo volta vazio: cole de novo a URL e a chave do grupo
+qc app         # agora sim
+```
+
+O `qc reativa` serve para qualquer lab, não só para o 5. Para os Labs 1 a 4 rode também `qc publica` e `qc semeia`; o Lab 5 não usa a Lambda e dispensa os dois. O `qc chave` só funciona enquanto a API de IA do professor estiver no ar, ou seja, durante a aula.
+
+Com a base no ar, o `qc app` junta numa tela tudo o que a barra lateral do app pede:
 
 | Campo no app | De onde vem | Usado em |
 |---|---|---|
