@@ -62,6 +62,31 @@ curl -s "$URL/health"     # sem chave: 403 do API Gateway, a Lambda nem é chama
 
 > O provider AWS do Terraform passa de 600 MB, e o `$HOME` do CloudShell tem 1 GB. Se o `init` der `no space left on device`, rode antes `export TF_PLUGIN_CACHE_DIR=/tmp/tf-cache TF_DATA_DIR=/tmp/tf-api-ia && mkdir -p /tmp/tf-cache`. O `terraform.tfstate` continua na pasta; só os providers vão para o `/tmp`, que some quando a sessão reinicia (repita o export e o `init` antes de um destroy).
 
+### Recuperar a URL e as chaves depois que a sessão cai
+
+A URL e as chaves não se perdem quando o CloudShell reinicia: o `terraform.tfstate` fica na pasta, no `$HOME`. O que some é o `/tmp`, onde estavam os providers. Abra o CloudShell de novo na sua conta, região `us-east-1`, e use um dos caminhos.
+
+Pelo Terraform, refazendo o `init` em `/tmp` (cerca de 1 minuto):
+
+```bash
+cd ~/aie-cloud/aulas/04-servicos-cognitivos/professor/api-ia/terraform
+export TF_PLUGIN_CACHE_DIR=/tmp/tf-cache TF_DATA_DIR=/tmp/tf-api-ia
+mkdir -p "$TF_PLUGIN_CACHE_DIR" && terraform init -input=false >/dev/null
+terraform output url
+terraform output -json chaves
+```
+
+Só pela AWS CLI, sem `init`:
+
+```bash
+API=$(aws apigateway get-rest-apis --query "items[?starts_with(name,'qc-api-ia')].id" --output text)
+echo "URL: https://$API.execute-api.us-east-1.amazonaws.com/v1"
+aws apigateway get-api-keys --include-values \
+  --query "items[?starts_with(name,'qc-api-ia')].[name,value]" --output table
+```
+
+Os dois mostram as chaves na tela: rode com o projetor desligado.
+
 ## Durante a aula
 
 Uso por grupo: **API Gateway → Usage plans → `qc-api-ia-...-turma` → Associated API keys → Usage**. O log da Lambda (`/aws/lambda/qc-api-ia-...`) traz o `api_key_id` de cada chamada; `terraform output chave_ids` diz de que grupo é cada id.

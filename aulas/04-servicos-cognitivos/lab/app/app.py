@@ -54,8 +54,8 @@ CORES = ["#E8175D", "#3DD68C", "#4A90D9", "#E8B04B", "#A78BFA", "#38BDF8"]
 st.sidebar.title("⚙️ Configuração")
 
 st.sidebar.caption(
-    "URL e chave da API de IA: `terraform output url` e `terraform output -json chaves` "
-    "em professor/api-ia/terraform."
+    "URL e chave da API de IA: os mesmos valores do `qc chave` (a chave do grupo). "
+    "O professor obtém com `terraform output` em professor/api-ia/terraform."
 )
 
 api_url = st.sidebar.text_input(
@@ -66,8 +66,8 @@ api_chave = st.sidebar.text_input("API key", type="password")
 
 st.sidebar.divider()
 st.sidebar.caption(
-    "Só para o caminho **direto**: uma access key da conta onde Polly e "
-    "Transcribe funcionam. O caminho pela API não usa."
+    "Só para o caminho **direto**. No Learner Lab: AWS Details → AWS CLI. "
+    "Lá, Polly e Transcribe dão AccessDenied; o Rekognition funciona. O caminho pela API não usa."
 )
 aws_key_id = st.sidebar.text_input("aws_access_key_id")
 aws_secret = st.sidebar.text_input("aws_secret_access_key", type="password")

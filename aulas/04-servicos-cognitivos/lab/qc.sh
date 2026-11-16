@@ -110,6 +110,7 @@ Uso: qc <comando>
 
   Lab 1 · reviews
   qc semeia                       grava 10 reviews no DynamoDB
+  qc rotulos [produto.jpg]        a primeira API pronta: Rekognition, sem criar nada
 
   Lab 2 · voz pela API de IA da QC
   qc chave                        guarda URL + chave do grupo no Secrets Manager
@@ -167,6 +168,16 @@ _qc_publica() {
 _qc_semeia() {
   _qc_precisa REVIEWS_TABLE || return 1
   python3 "$QC_LAB/scripts/semear_reviews.py"
+}
+
+_qc_rotulos() {
+  # Uma chamada direta ao Rekognition com a credencial da sessão: nenhum recurso
+  # é criado, e a imagem viaja no corpo da chamada (não precisa estar no S3).
+  local img="$QC_LAB/data/${1:-produto.jpg}"
+  [ -f "$img" ] || { echo "Imagem não encontrada: $img" >&2; return 1; }
+  echo "→ Rekognition DetectLabels em ${img##*/} (cerca de US\$ 0,001 por imagem)"
+  aws rekognition detect-labels --image-bytes "fileb://$img" --max-labels 5 \
+    --query 'Labels[].[Name, Confidence]' --output table
 }
 
 _qc_chave() {
@@ -355,6 +366,7 @@ qc() {
     status)      _qc_carrega; _qc_status ;;
     publica)     _qc_publica ;;
     semeia)      _qc_semeia ;;
+    rotulos)     _qc_rotulos "${2:-}" ;;
     chave)       _qc_chave ;;
     fala)        _qc_fala "${2:-}" "${3:-}" ;;
     transcreve)  _qc_transcreve "${2:-}" ;;

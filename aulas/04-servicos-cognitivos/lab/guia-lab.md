@@ -26,6 +26,7 @@ Lab 2    — voz pela API de IA: a chave no Secrets Manager                ~25 m
 Lab 3    — sentimento das reviews (API de IA) e a etiqueta (Textract)    ~25 min  (Bloco 3)
 Lab 4    — catálogo por chamada direta e moderação por evento do S3      ~25 min  (Bloco 4)
 Demo     — QC Cognitive Studio (professor)                               ~10 min
+Lab 5    — o mesmo app em cada grupo: API de IA × caminho direto         ~20 min  (Bloco 4)
 Wrap-up  — terraform destroy + verificação de custo                       ~5 min
 ```
 
@@ -95,7 +96,19 @@ Console: **DynamoDB** → Tables → `qc-aula04-xxxxxx-reviews` → **Explore ta
 
 > **Para discutir:** procure no [`semear_reviews.py`](scripts/semear_reviews.py) uma senha, um host, uma porta, uma chave. Não há. Quem autoriza a gravação?
 
-**✅ Checkpoint L₁:** 10 reviews na tabela, ainda sem coluna de sentimento.
+### Passo 3 — A primeira API pronta
+
+Até aqui o lab preparou a base e colocou o problema na mesa: reviews que ninguém leu. Antes de seguir, uma chamada a uma API pronta, com a mesma foto do slide "a mesma foto, três respostas":
+
+```bash
+qc rotulos
+```
+
+Uma chamada só, sem treinar nada e sem criar recurso: o Tag Editor continua sem nenhum "Rekognition". Custa cerca de US$ 0,001 por imagem.
+
+> **Para discutir:** o Rekognition sabe que é um teclado. Ele sabe qual modelo é da QC? E consegue escrever uma descrição para o cliente? A primeira pergunta é de modelo custom; a segunda, de LLM. É a decisão do Bloco 1 na prática.
+
+**✅ Checkpoint L₁:** 10 reviews na tabela, ainda sem coluna de sentimento, e os rótulos do produto na tela.
 
 ---
 
@@ -218,6 +231,68 @@ aws logs tail /aws/lambda/$FUNC_NAME --since 10m --format short | grep moderaç�
 O professor roda o app [Streamlit](app/README.md) na própria máquina (o navegador só libera o microfone em `localhost` ou HTTPS) e compara dois caminhos para a mesma operação: pela API de IA, com a chave do lado do servidor, e direto na AWS, com uma access key no app. O resultado é o mesmo; o risco, não.
 
 **A pergunta que fecha a aula:** se o caminho direto é mais rápido e mais simples, por que a arquitetura da disciplina insiste no outro?
+
+---
+
+## Lab 5 — Front-end: QC Cognitive Studio (Bloco 4, ~20 min)
+
+**Objetivo:** sair do terminal e usar os serviços numa interface e, no caminho, comparar **duas arquiteturas de acesso à IA** que produzem o mesmo resultado com riscos bem diferentes. É o mesmo app da demo do professor; agora cada grupo roda o seu.
+
+### Passo 1 — Rodar na SUA máquina
+
+Não é no CloudShell: o navegador só libera o microfone em `localhost` ou HTTPS.
+
+```bash
+# no seu notebook, dentro do repositório clonado
+cd aulas/04-servicos-cognitivos/lab/app
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+Abre em `http://localhost:8501`.
+
+### Passo 2 — Primeiro só a API de IA
+
+Na barra lateral, preencha **só** a URL da API de IA e a **chave do grupo**: os mesmos valores que você colou no `qc chave`. Se não tiver mais à mão, recupere do cofre do grupo, no CloudShell:
+
+```bash
+source ~/aie-cloud/aulas/04-servicos-cognitivos/lab/qc.sh
+aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query SecretString --output text \
+  | python3 -c 'import json,sys; d=json.load(sys.stdin); print("URL  :", d["url"]); print("Chave:", d["chave"])'
+```
+
+Copie os dois valores para o app e limpe a tela (`clear`). Não cole a chave no chat da turma.
+
+Deixe as credenciais da AWS em branco, escolha **Via API de IA** e use as três primeiras abas.
+
+| Aba | O que fazer |
+|---|---|
+| 🔊 Texto → Fala | Sintetize uma frase e baixe o WAV: ele serve de entrada para a aba seguinte |
+| 🎤 Fala → Texto | Grave do microfone ou envie o WAV baixado |
+| 🖼️ Visão + Espacial | Envie `data/produto.jpg` ou uma foto sua: tags, texto e caixas desenhadas sobre a imagem |
+| 🏛️ Arquitetura | A comparação e as perguntas de discussão |
+
+Tudo funciona, e o app não tem credencial nenhuma da AWS. Essa é a demonstração.
+
+> **Se a transcrição vier vazia com 200:** teste com o WAV baixado da aba de fala. Se esse funcionar, o problema é o áudio do microfone, não o serviço. Separar "formato errado" de "serviço fora" é metade do exercício.
+
+### Passo 3 — Agora o caminho direto
+
+No Learner Lab, abra **AWS Details** → **AWS CLI: Show** e copie `aws_access_key_id`, `aws_secret_access_key` e `aws_session_token` para a barra lateral. Deixe a **Região** em `us-east-1` e preencha o **DATA_BUCKET** com o bucket do grupo (`echo $DATA_BUCKET` no CloudShell): o Transcribe só lê áudio do S3, e sem o bucket a aba de transcrição para antes de chegar no serviço. Escolha **Comparar os dois** e rode as três abas.
+
+- **Visão:** funciona pelos dois caminhos. Compare os tempos: o direto é mais rápido, com um salto a menos.
+- **Fala e transcrição:** o caminho direto devolve **AccessDenied**. A credencial da sessão não tem Polly nem Transcribe; a API de IA tem.
+
+### Passo 4 — Discutir (em grupo)
+
+1. Se o direto é mais rápido e mais simples, por que a arquitetura da disciplina insiste numa API na frente?
+2. Este app roda no seu notebook. Se virasse uma página web pública, o que aconteceria com o session token dentro do JavaScript entregue ao navegador?
+3. O que a chave do grupo abre? E o session token que você acabou de colar?
+4. Um colega commita o app no GitHub com o token preenchido. Apagar o arquivo e commitar de novo resolve?
+
+**✅ Checkpoint L₅:** as três abas funcionam com as credenciais da AWS em branco, e o grupo sabe explicar por que a fala falha no caminho direto.
+
+> Ao terminar, apague as credenciais da barra lateral ou feche a aba: o app não guarda nada em disco, e o session token do Learner Lab vale até a sessão acabar.
 
 ---
 
