@@ -261,31 +261,105 @@ O professor roda o app [Streamlit](app/README.md) na própria máquina (o navega
 
 **Objetivo:** sair do terminal e usar os serviços numa interface e, no caminho, comparar **duas arquiteturas de acesso à IA** que produzem o mesmo resultado com riscos bem diferentes. É o mesmo app da demo do professor; agora cada grupo roda o seu.
 
-### Passo 1 — Rodar na SUA máquina
+Todo o Lab 5 roda na **sua máquina**, no VS Code. Não é no CloudShell: o navegador só libera o microfone em `localhost`. O CloudShell entra só no Passo 0, para buscar os valores que o app pede.
 
-Não é no CloudShell: o navegador só libera o microfone em `localhost` ou HTTPS.
+**Antes de começar, no notebook:** Python 3.11 ou 3.12, Git e o VS Code com a extensão **Python** (Microsoft).
 
-```bash
-# no seu notebook, dentro do repositório clonado
-cd aulas/04-servicos-cognitivos/lab/app
-pip install -r requirements.txt
-streamlit run app.py
-```
-
-Abre em `http://localhost:8501`.
-
-### Passo 2 — Primeiro só a API de IA
-
-Na barra lateral, preencha **só** a URL da API de IA e a **chave do grupo**: os mesmos valores que você colou no `qc chave`. Se não tiver mais à mão, o `qc app` junta no CloudShell tudo o que a barra lateral pede, inclusive o que o Passo 3 vai usar:
+### Passo 0 — Coletar os valores do app (no CloudShell)
 
 ```bash
 source ~/aie-cloud/aulas/04-servicos-cognitivos/lab/qc.sh
 qc app
 ```
 
-Copie a URL e a chave para o app e limpe a tela (`clear`). Não cole esses valores no chat da turma.
+O `qc app` junta numa tela tudo o que a barra lateral do app pede:
 
-Deixe as credenciais da AWS em branco, escolha **Via API de IA** e use as três primeiras abas.
+| Campo no app | De onde vem | Usado em |
+|---|---|---|
+| URL da API de IA | o segredo do grupo (o que o `qc chave` gravou) | Via API de IA |
+| API key | o segredo do grupo | Via API de IA |
+| aws_access_key_id | a credencial da sessão do CloudShell | Caminho direto |
+| aws_secret_access_key | idem | Caminho direto |
+| aws_session_token | idem | Caminho direto |
+| Região | `us-east-1` | Caminho direto |
+| DATA_BUCKET | o bucket do grupo | Caminho direto, só a transcrição |
+
+Copie os valores para um bloco de notas **local** (não para o repositório) e rode `clear`. A credencial do CloudShell vence antes da sessão do Learner Lab, e o `qc app` mostra a hora; se o app começar a dar `ExpiredToken`, rode `qc app` de novo ou use **AWS Details** → **AWS CLI: Show** no Learner Lab, que vale a sessão inteira.
+
+> Os valores são sensíveis: não projete, não cole no chat da turma, não grave em `.env` nem no `launch.json`.
+
+### Passo 1 — Clonar e abrir o repositório no VS Code
+
+No terminal do VS Code (**Terminal → New Terminal**):
+
+```bash
+git clone https://github.com/IsaiasBritto/aie-cloud-aws.git
+cd aie-cloud-aws
+code .
+```
+
+Se você já tem o clone, basta um `git pull` para trazer o Lab 5.
+
+### Passo 2 — Criar o ambiente virtual do app
+
+Ainda no terminal integrado, a partir da raiz do repositório.
+
+**Windows (PowerShell):**
+
+```powershell
+cd aulas\04-servicos-cognitivos\lab\app
+py -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+Se o PowerShell bloquear o `Activate.ps1`, rode antes `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+
+**macOS ou Linux:**
+
+```bash
+cd aulas/04-servicos-cognitivos/lab/app
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Depois, aponte o VS Code para esse ambiente: `Ctrl+Shift+P` (no Mac, `Cmd+Shift+P`) → **Python: Select Interpreter** → o `.venv` que está em `lab/app`. O `.venv` não vai para o Git.
+
+### Passo 3 — Rodar o app
+
+Com o `.venv` ativo:
+
+```bash
+streamlit run app.py
+```
+
+O navegador abre em `http://localhost:8501`. Use exatamente esse endereço: o microfone da aba "Fala → Texto" só funciona em `localhost`.
+
+**Opcional — rodar e depurar com F5.** Crie `.vscode/launch.json` na raiz do repositório:
+
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Lab 5 · QC Cognitive Studio",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "streamlit",
+      "args": ["run", "app.py", "--server.headless", "false"],
+      "cwd": "${workspaceFolder}/aulas/04-servicos-cognitivos/lab/app",
+      "justMyCode": true
+    }
+  ]
+}
+```
+
+Com breakpoints em `tts_lambda`, `stt_lambda` ou `visao_direto`, você vê o que vai e o que volta em cada caminho, inclusive a requisição saindo com o cabeçalho `x-api-key`.
+
+### Passo 4 — Primeiro só a API de IA
+
+Na barra lateral, preencha **só** a URL da API de IA e a API key do Passo 0. Deixe as credenciais da AWS em branco, escolha **Via API de IA** e use as três primeiras abas.
 
 | Aba | O que fazer |
 |---|---|
@@ -298,14 +372,14 @@ Tudo funciona, e o app não tem credencial nenhuma da AWS. Essa é a demonstraç
 
 > **Se a transcrição vier vazia com 200:** teste com o WAV baixado da aba de fala. Se esse funcionar, o problema é o áudio do microfone, não o serviço. Separar "formato errado" de "serviço fora" é metade do exercício.
 
-### Passo 3 — Agora o caminho direto
+### Passo 5 — Agora o caminho direto
 
-Copie para a barra lateral as três credenciais da sessão que o `qc app` mostrou (`aws_access_key_id`, `aws_secret_access_key` e `aws_session_token`). Elas também estão no Learner Lab, em **AWS Details** → **AWS CLI: Show**, e essa versão dura a sessão inteira; a do CloudShell vence antes, e o `qc app` mostra quando. Deixe a **Região** em `us-east-1` e preencha o **DATA_BUCKET** com o bucket do grupo (`echo $DATA_BUCKET` no CloudShell): o Transcribe só lê áudio do S3, e sem o bucket a aba de transcrição para antes de chegar no serviço. Escolha **Comparar os dois** e rode as três abas.
+Preencha as três credenciais, a **Região** (`us-east-1`) e o **DATA_BUCKET** com os valores do Passo 0. O DATA_BUCKET é necessário porque o Transcribe só lê áudio do S3: sem ele, a aba de transcrição para antes de chegar no serviço. Escolha **Comparar os dois** e rode as três abas.
 
 - **Visão:** funciona pelos dois caminhos. Compare os tempos: o direto é mais rápido, com um salto a menos.
 - **Fala e transcrição:** o caminho direto devolve **AccessDenied**. A credencial da sessão não tem Polly nem Transcribe; a API de IA tem.
 
-### Passo 4 — Discutir (em grupo)
+### Passo 6 — Discutir (em grupo)
 
 1. Se o direto é mais rápido e mais simples, por que a arquitetura da disciplina insiste numa API na frente?
 2. Este app roda no seu notebook. Se virasse uma página web pública, o que aconteceria com o session token dentro do JavaScript entregue ao navegador?
