@@ -8,6 +8,7 @@ VERSAO="${1:-1.9.8}"
 DESTINO="$HOME/bin"
 
 if command -v terraform >/dev/null 2>&1 && terraform -version | head -1 | grep -q "v${VERSAO}"; then
+  mkdir -p "$HOME/.terraform.d/plugin-cache"   # o .bashrc aponta para cá; sem a pasta o terraform reclama
   echo "✓ Terraform ${VERSAO} já instalado em $(command -v terraform)"
   exit 0
 fi

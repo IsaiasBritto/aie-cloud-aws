@@ -96,7 +96,7 @@ cheia de providers do Terraform. Confira antes de começar:
 
 ```bash
 df -h ~ | tail -1      # Use% acima de 80%? Rode as duas linhas abaixo
-rm -rf ~/.terraform.d/plugin-cache
+rm -rf ~/.terraform.d/plugin-cache/*   # esvazia, mas mantém a pasta que o .bashrc usa
 find ~/aie-cloud -name .terraform -type d -prune -exec rm -rf {} +
 ```
 

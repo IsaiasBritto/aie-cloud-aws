@@ -28,7 +28,7 @@ disso apaga estado; o `init` baixa o provider de novo):
 
 ```bash
 df -h ~ | tail -1
-rm -rf ~/.terraform.d/plugin-cache
+rm -rf ~/.terraform.d/plugin-cache/*   # esvazia, mas mantém a pasta que o .bashrc usa
 find ~/aie-cloud -name .terraform -type d -prune -exec rm -rf {} +
 export TF_PLUGIN_CACHE_DIR=/tmp/tf-cache && mkdir -p $TF_PLUGIN_CACHE_DIR
 ```
