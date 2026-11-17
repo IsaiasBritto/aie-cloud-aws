@@ -153,6 +153,14 @@ O Rekognition aceita **JPEG e PNG** de até **5 MB** quando a imagem vai no corp
 
 ## Lab 2 — Voz pela API de IA da QC (Bloco 2)
 
+> ⚠️ **Ação do professor antes do Lab 2.** Este lab depende da API de IA da QC, publicada pelo professor na conta própria dele (o Learner Lab não libera Polly, Transcribe nem Comprehend). Sem ela no ar, o `qc fala`, o `qc transcreve` e o `qc reviews` do Lab 3 respondem erro.
+>
+> Passo a passo do professor: [professor/api-ia/README.md](../professor/api-ia/README.md)
+> 1. [Publicar a API](../professor/api-ia/README.md#publicar-na-sua-conta-não-no-learner-lab) e testar o `/health` antes da aula.
+> 2. Entregar a URL e uma chave por grupo, fora do repositório e do chat da turma.
+> 3. Se a sessão do CloudShell cair: [recuperar a URL e as chaves](../professor/api-ia/README.md#recuperar-a-url-e-as-chaves-depois-que-a-sessão-cai).
+> 4. [No fim da aula](../professor/api-ia/README.md#no-fim-de-cada-aula), desligar a API ou invalidar as chaves.
+
 ### Passo 1 — A chave do grupo vai para o cofre
 
 O professor entrega a cada grupo a **URL** da API de IA e uma **chave** (fora do repositório, fora do chat da turma). Antes de gravar, veja o que acontece sem ela:
