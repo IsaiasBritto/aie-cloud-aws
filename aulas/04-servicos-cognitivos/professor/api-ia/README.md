@@ -137,6 +137,48 @@ Uso por grupo: **API Gateway → Usage plans → `qc-api-ia-...-turma` → Assoc
 
 Revogar um grupo: tire o nome de `grupos` no `terraform.tfvars` e rode `terraform apply`. Trocar todas as chaves: `terraform apply -replace='aws_api_gateway_api_key.grupo["grupo-01"]'` (um por grupo) ou destroy e apply.
 
+## Demo do Lab 5: o caminho direto com a sua conta
+
+No Learner Lab, o caminho **Direto na AWS** do QC Cognitive Studio dá AccessDenied em Polly e Transcribe: a role `voclabs` não libera esses serviços. Para a demo do professor, o app usa credenciais da **sua conta pessoal**, a mesma da API, e os dois caminhos funcionam lado a lado.
+
+**No CloudShell da conta pessoal** (confira o seu usuário no canto superior direito; não pode ser `voclabs`):
+
+```bash
+aws configure export-credentials --format process | python3 -c '
+import json, sys
+c = json.load(sys.stdin)
+print("aws_access_key_id     :", c["AccessKeyId"])
+print("aws_secret_access_key :", c["SecretAccessKey"])
+print("aws_session_token     :", c["SessionToken"])
+print("vence em              :", c.get("Expiration", "?"))
+'
+aws s3 ls | grep qc-api-ia          # DATA_BUCKET: o qc-api-ia-xxxxxx-temp
+clear                               # depois de copiar
+```
+
+**Ou na sua máquina**, se a AWS CLI já estiver configurada com a conta pessoal (troque `pessoal` pelo nome do seu perfil, ou tire o `--profile` se for o padrão):
+
+```powershell
+aws configure export-credentials --profile pessoal --format powershell
+aws s3 ls --profile pessoal | Select-String qc-api-ia
+```
+
+Com um usuário IAM de chave fixa, não há `aws_session_token`: deixe o campo vazio.
+
+Na barra lateral do app:
+
+| Campo | Valor |
+|---|---|
+| aws_access_key_id | `AccessKeyId` (começa com `ASIA` quando é temporária) |
+| aws_secret_access_key | `SecretAccessKey` |
+| aws_session_token | `SessionToken`, inteiro |
+| Região | `us-east-1` |
+| DATA_BUCKET | `qc-api-ia-xxxxxx-temp` (o Transcribe só lê áudio do S3) |
+
+Teste antes da aula com **Comparar os dois** nas três abas.
+
+> ⚠️ Essa credencial tem as permissões do seu usuário na conta pessoal. Gere sem a tela projetada, não grave em `.env`, `launch.json` nem `secrets.toml`, e não entregue aos alunos. A do CloudShell vence em cerca de 1 hora: gere de novo pouco antes da demo e repita se o app mostrar `ExpiredToken`. As chamadas diretas não passam pelo API Gateway, então a cota por grupo não vale para elas; quem segura o gasto é o budget.
+
 ## No fim de cada aula
 
 As chaves foram mostradas aos grupos e circulam em CloudShells e notebooks. Não deixe a API no ar depois do encontro. Duas saídas:

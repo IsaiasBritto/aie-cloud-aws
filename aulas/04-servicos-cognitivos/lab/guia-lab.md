@@ -292,6 +292,8 @@ aws logs tail /aws/lambda/$FUNC_NAME --since 10m --format short | grep moderaç�
 
 O professor roda o app [Streamlit](app/README.md) na própria máquina (o navegador só libera o microfone em `localhost` ou HTTPS) e compara dois caminhos para a mesma operação: pela API de IA, com a chave do lado do servidor, e direto na AWS, com uma access key no app. O resultado é o mesmo; o risco, não.
 
+Na demo, o caminho direto usa credenciais da conta pessoal do professor, onde Polly e Transcribe estão liberados, e os dois caminhos funcionam nas três abas. Como coletar: [Demo do Lab 5 no README da API](../professor/api-ia/README.md#demo-do-lab-5-o-caminho-direto-com-a-sua-conta).
+
 **A pergunta que fecha a aula:** se o caminho direto é mais rápido e mais simples, por que a arquitetura da disciplina insiste no outro?
 
 ---
@@ -423,10 +425,11 @@ Tudo funciona, e o app não tem credencial nenhuma da AWS. Essa é a demonstraç
 
 ### Passo 5 — Agora o caminho direto
 
-Preencha as três credenciais, a **Região** (`us-east-1`) e o **DATA_BUCKET** com os valores do Passo 0. O DATA_BUCKET é necessário porque o Transcribe só lê áudio do S3: sem ele, a aba de transcrição para antes de chegar no serviço. Escolha **Comparar os dois** e rode as três abas.
+Preencha as três credenciais, a **Região** (`us-east-1`) e o **DATA_BUCKET** com os valores do Passo 0. Vá para a aba **Visão + Espacial**, escolha **Comparar os dois** e envie uma imagem.
 
-- **Visão:** funciona pelos dois caminhos. Compare os tempos: o direto é mais rápido, com um salto a menos.
-- **Fala e transcrição:** o caminho direto devolve **AccessDenied**. A credencial da sessão não tem Polly nem Transcribe; a API de IA tem.
+Os dois caminhos funcionam, porque a credencial do Learner Lab libera o Rekognition. Compare os tempos: o direto é mais rápido, com um salto a menos.
+
+Nas abas de **voz**, continue em **Via API de IA**. A credencial do Learner Lab não libera Polly nem Transcribe, então o caminho direto ali só funciona com uma conta que tenha essas permissões, como o professor mostrou na demo. É a mesma pergunta do Passo 6: quem pode chamar o quê, e com qual credencial.
 
 ### Passo 6 — Discutir (em grupo)
 
@@ -435,7 +438,7 @@ Preencha as três credenciais, a **Região** (`us-east-1`) e o **DATA_BUCKET** c
 3. O que a chave do grupo abre? E o session token que você acabou de colar?
 4. Um colega commita o app no GitHub com o token preenchido. Apagar o arquivo e commitar de novo resolve?
 
-**✅ Checkpoint L₅:** as três abas funcionam com as credenciais da AWS em branco, e o grupo sabe explicar por que a fala falha no caminho direto.
+**✅ Checkpoint L₅:** as três abas funcionam com as credenciais da AWS em branco, a Visão funciona pelos dois caminhos, e o grupo sabe explicar por que a voz pelo caminho direto depende da credencial usada.
 
 > Ao terminar, apague as credenciais da barra lateral ou feche a aba: o app não guarda nada em disco, e o session token do Learner Lab vale até a sessão acabar.
 
