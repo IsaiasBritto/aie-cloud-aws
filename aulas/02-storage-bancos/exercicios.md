@@ -65,25 +65,27 @@ Para cada cenário, escolha **Object Storage**, **File Storage** ou **Block Stor
 
 ### Exercício 1.2 — Tiers de acesso (cálculo)
 
-A Quantum Commerce armazena **2 TB de logs de compras**. Os primeiros 30 dias os logs são consultados para detecção de fraude (S3 Standard). Depois disso, viram dados arquivados de compliance LGPD (S3 Glacier Deep Archive, retenção 5 anos).
+A Quantum Commerce gera **2 TB de logs de compras por mês**. Nos primeiros 30 dias, os logs são consultados para detecção de fraude (S3 Standard). Depois disso, viram dados arquivados de compliance LGPD (S3 Glacier Deep Archive) e são guardados por **5 anos**.
 
-a) Quanto custaria 1 mês desses logs **se mantidos 100% em S3 Standard**? (Use ~$0,023/GB/mês em us-east-1)
-b) Quanto custaria 1 mês desses logs **com lifecycle: 30 dias Standard + Deep Archive depois**? (Deep Archive ~$0,00099/GB/mês)
-c) Economia anual com a lifecycle policy?
+Considere o regime estável, depois de 5 anos de operação: a cada mês entram 2 TB novos e saem os 2 TB que completaram 5 anos, então o total guardado fica em 60 × 2 TB = **120 TB**.
+
+a) Quanto custa 1 mês desse volume **se tudo ficar em S3 Standard**? (Use ~$0,023/GB/mês em us-east-1)
+b) Quanto custa 1 mês **com lifecycle: 30 dias em Standard e Deep Archive depois**? (Deep Archive ~$0,00099/GB/mês)
+c) Qual a economia anual com a lifecycle policy?
 
 <details>
 <summary>Gabarito</summary>
 
-- a) 2.048 GB × $0,023 = **$47,10/mês** (~$565/ano)
-- b) Considerando steady state, ~92% do volume em Deep Archive:
-  - Standard: 2048 × 30/365 × $0,023 = $3,87/mês (média anual)
-  - Deep Archive: 2048 × 335/365 × $0,00099 = $1,86/mês (média anual)
-  - Total: ~**$5,73/mês**
-- c) Economia anual: ($47,10 - $5,73) × 12 = **~$496/ano**
+- a) 120 TB = 122.880 GB × $0,023 = **$2.826,24/mês** (~$33.900/ano)
+- b) Só o último mês fica em Standard; os outros 59 meses estão no Deep Archive:
+  - Standard: 2.048 GB × $0,023 = $47,10/mês
+  - Deep Archive: 120.832 GB × $0,00099 = $119,62/mês
+  - Total: **~$166,73/mês**
+- c) Economia anual: ($2.826,24 - $166,73) × 12 = **~$31.900/ano**
 
-> Atenção ao que o cálculo não mostra: Deep Archive cobra para **ler** (recuperação em até 12 h) e tem permanência mínima de 180 dias.
+> Nos primeiros 5 anos o volume ainda está crescendo (2 TB no 1º mês, 24 TB no fim do 1º ano), então a conta mensal sobe até chegar a esses valores. A proporção, porém, já aparece cedo: depois do 2º mês, quase tudo está no Deep Archive.
 
-> Para a QC com volumes reais (centenas de TB), essa decisão impacta facilmente seis dígitos por ano.
+> Atenção ao que o cálculo não mostra: Deep Archive cobra para **ler** (recuperação em até 12 h), tem permanência mínima de 180 dias e cobra por requisição de transição no lifecycle (por objeto, então milhões de arquivos pequenos de log pesam). Agrupe os logs em arquivos maiores antes de arquivar.
 
 </details>
 
