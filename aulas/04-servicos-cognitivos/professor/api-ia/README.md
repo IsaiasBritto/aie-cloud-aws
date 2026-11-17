@@ -99,6 +99,40 @@ Os dois mostram as chaves na tela: rode com o projetor desligado.
 
 ## Durante a aula
 
+### Entregar URL e chave a cada grupo
+
+Na pasta `terraform`, a lista de grupos com as chaves:
+
+```bash
+terraform output -json chaves | python3 -c '
+import json, sys
+chaves = json.load(sys.stdin)
+print("URL:", sys.argv[1]); print()
+for grupo in sorted(chaves):
+    print(f"{grupo:<10}  {chaves[grupo]}")
+' "$(terraform output -raw url)"
+```
+
+Ou uma mensagem pronta por grupo, para copiar e colar (a chave `professor` fica de fora):
+
+```bash
+terraform output -json chaves | python3 -c '
+import json, sys
+url, chaves = sys.argv[1], json.load(sys.stdin)
+for grupo in sorted(chaves):
+    if grupo == "professor": continue
+    print(f"---- {grupo} ----")
+    print(f"URL da API de IA: {url}")
+    print(f"Chave do {grupo}: {chaves[grupo]}")
+    print("No CloudShell: qc chave (cole a URL e a chave quando pedir)")
+    print()
+' "$(terraform output -raw url)"
+```
+
+Mande cada chave só ao seu grupo, por canal privado. As chaves aparecem na tela e ficam no histórico do terminal: não rode com a tela compartilhada.
+
+### Acompanhar e revogar
+
 Uso por grupo: **API Gateway → Usage plans → `qc-api-ia-...-turma` → Associated API keys → Usage**. O log da Lambda (`/aws/lambda/qc-api-ia-...`) traz o `api_key_id` de cada chamada; `terraform output chave_ids` diz de que grupo é cada id.
 
 Revogar um grupo: tire o nome de `grupos` no `terraform.tfvars` e rode `terraform apply`. Trocar todas as chaves: `terraform apply -replace='aws_api_gateway_api_key.grupo["grupo-01"]'` (um por grupo) ou destroy e apply.
