@@ -35,9 +35,19 @@ No CloudShell da sua conta, região `us-east-1`:
 
 ```bash
 cd ~/aie-cloud/aulas/04-servicos-cognitivos/professor/api-ia/terraform
-cp terraform.tfvars.example terraform.tfvars    # preencha o e-mail; o .gitignore exclui o .tfvars
+EMAIL='seu@email.com'                           # troque pelo seu: recebe o alerta do budget de US$ 10
+cp terraform.tfvars.example terraform.tfvars && sed -i "s/seu-email@exemplo.com/$EMAIL/" terraform.tfvars
+cat terraform.tfvars                            # confira o e-mail
 terraform init
 terraform apply
+```
+
+O `terraform.tfvars` guarda o e-mail para o `apply`, o `destroy` e as republicações. O `.gitignore` exclui `*.tfvars`, então ele nunca vai para o Git. Se o arquivo já existe de uma publicação anterior, pule a linha do `cp`.
+
+As linhas comentadas do arquivo são opcionais: sem elas, a API cria as chaves `grupo-01` a `grupo-08` e `professor`, com 300 chamadas por dia cada. Para outro número de grupos, acrescente a linha antes do `apply`:
+
+```bash
+echo 'grupos = ["grupo-01", "grupo-02", "grupo-03", "grupo-04", "grupo-05", "grupo-06", "professor"]' >> terraform.tfvars
 ```
 
 Depois do apply:
