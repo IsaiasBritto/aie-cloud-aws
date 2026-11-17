@@ -110,7 +110,7 @@ Uso: qc <comando>
 
   Lab 1 · reviews
   qc semeia                       grava 10 reviews no DynamoDB
-  qc rotulos [produto.jpg]        a primeira API pronta: Rekognition, sem criar nada
+  qc rotulos [imagem] [N]         a primeira API pronta: Rekognition, sem criar nada
 
   Lab 2 · voz pela API de IA da QC
   qc chave                        guarda URL + chave do grupo no Secrets Manager
@@ -177,10 +177,12 @@ _qc_semeia() {
 _qc_rotulos() {
   # Uma chamada direta ao Rekognition com a credencial da sessão: nenhum recurso
   # é criado, e a imagem viaja no corpo da chamada (não precisa estar no S3).
-  local img="$QC_LAB/data/${1:-produto.jpg}"
-  [ -f "$img" ] || { echo "Imagem não encontrada: $img" >&2; return 1; }
+  # Aceita um nome de data/ (produto1.jpg) ou um caminho (~/foto.jpg); o 2º argumento é quantos rótulos.
+  local img="${1:-produto.jpg}" max="${2:-5}"
+  [ -f "$img" ] || img="$QC_LAB/data/$img"
+  [ -f "$img" ] || { echo "Imagem não encontrada: ${1:-produto.jpg} (nem em $QC_LAB/data/)" >&2; return 1; }
   echo "→ Rekognition DetectLabels em ${img##*/} (cerca de US\$ 0,001 por imagem)"
-  aws rekognition detect-labels --image-bytes "fileb://$img" --max-labels 5 \
+  aws rekognition detect-labels --image-bytes "fileb://$img" --max-labels "$max" \
     --query 'Labels[].[Name, Confidence]' --output table
 }
 

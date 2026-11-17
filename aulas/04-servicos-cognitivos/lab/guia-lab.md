@@ -125,6 +125,26 @@ qc rotulos
 
 Uma chamada só, sem treinar nada e sem criar recurso: o Tag Editor continua sem nenhum "Rekognition". Custa cerca de US$ 0,001 por imagem.
 
+Agora teste com as outras imagens do repositório. O comando aceita o nome de um arquivo da pasta `data/` e, opcionalmente, quantos rótulos mostrar (o padrão é 5):
+
+```bash
+qc rotulos produto1.jpg
+qc rotulos produto2.jpg 10
+qc rotulos review-foto-praia.jpg
+qc rotulos etiqueta.png             # um documento: repare no que ele NÃO entende
+
+# todas as imagens de data/ de uma vez
+for f in "$QC_LAB"/data/*.jpg "$QC_LAB"/data/*.png; do qc rotulos "$(basename "$f")"; done
+```
+
+Quer testar uma foto sua? No CloudShell, **Actions → Upload file**: o arquivo cai na home e o `qc` aceita o caminho.
+
+```bash
+qc rotulos ~/minha-foto.jpg 10
+```
+
+O Rekognition aceita **JPEG e PNG** de até **5 MB** quando a imagem vai no corpo da chamada. Foto de celular costuma passar disso; reduza antes de subir.
+
 > **Para discutir:** o Rekognition sabe que é um teclado. Ele sabe qual modelo é da QC? E consegue escrever uma descrição para o cliente? A primeira pergunta é de modelo custom; a segunda, de LLM. É a decisão do Bloco 1 na prática.
 
 **✅ Checkpoint L₁:** 10 reviews na tabela, ainda sem coluna de sentimento, e os rótulos do produto na tela.
@@ -224,6 +244,17 @@ qc tabela produtos
 ```
 
 O Rekognition devolve rótulos e o texto da imagem, e a Lambda grava como tags do produto na tabela `produtos`. Você chamou a função e esperou a resposta.
+
+Cada imagem vira um produto (o nome do arquivo é o id). Cadastre as outras e compare:
+
+```bash
+qc catalogo produto1.jpg
+qc catalogo produto2.jpg
+qc catalogo ~/minha-foto.jpg      # a que você subiu no Lab 1, se subiu
+qc tabela produtos
+```
+
+> **`qc rotulos` × `qc catalogo`:** os dois chamam o Rekognition. O `rotulos` só mostra na tela; o `catalogo` sobe a imagem para o S3, passa pela Lambda e grava as tags no DynamoDB, que é o que a aplicação usa.
 
 ### Passo 2 — Moderação da foto da review (evento)
 
