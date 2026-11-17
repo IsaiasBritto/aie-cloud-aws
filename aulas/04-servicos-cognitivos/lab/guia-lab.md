@@ -266,6 +266,8 @@ qc tabela produtos
 
 ### Passo 2 — Moderação da foto da review (evento)
 
+> Pulou o Lab 1 ou a sessão reiniciou? Rode `qc semeia` antes: sem as reviews na tabela, o `qc foto-review` responde "a review r002 não existe".
+
 Um cliente anexa uma foto à review `r002`:
 
 ```bash
@@ -306,7 +308,16 @@ Todo o Lab 5 roda na **sua máquina**, no VS Code. Não é no CloudShell: o nave
 
 **Antes de começar, no notebook:** Python 3.11 ou 3.12, Git e o VS Code com a extensão **Python** (Microsoft).
 
-### Passo 0 — Coletar os valores do app (no CloudShell)
+> **Dois lugares neste lab.** Só o Passo 0 roda no CloudShell; o resto roda no seu computador. `source` e `qc` são do bash do CloudShell e não existem no PowerShell.
+>
+> | Onde | Passos | O que faz |
+> |---|---|---|
+> | CloudShell do **Learner Lab** (navegador) | 0 | `qc app` mostra os valores da barra lateral |
+> | VS Code no seu computador | 1 a 6 | ambiente, dependências, app e testes |
+
+### Passo 0 — Coletar os valores do app (no CloudShell do Learner Lab)
+
+Abra o CloudShell pelo console do **Learner Lab** (o usuário no canto superior direito começa com `voclabs/`). Em outra conta, como a pessoal do professor, o `qc` não encontra a base do lab e mostra tudo `VAZIO`.
 
 ```bash
 source ~/aie-cloud/aulas/04-servicos-cognitivos/lab/qc.sh
