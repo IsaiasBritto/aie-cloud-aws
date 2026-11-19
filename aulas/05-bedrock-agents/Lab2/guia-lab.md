@@ -3,14 +3,42 @@
 Objetivo: ver um agente trabalhar **sem ninguém chamar** e provar que a fronteira em código segura
 o que o prompt não segura. Você termina com uma regra nova na memória **assinada por você**.
 
-Escolha um caminho:
+O lab é um só (a mesma API, o mesmo agente, a mesma fronteira) em três formas. Muda onde roda e
+de onde vem a nota:
 
-- **Caminho A — sua máquina** (recomendado): API + mesa do auditor no navegador.
-- **Caminho B — CloudShell**: sem instalar nada; tudo por linha de comando. Inclui o gatilho na AWS.
+| Parte | Onde roda | Quem faz | Precisa da AWS? | Para quê |
+|---|---|---|---|---|
+| **1 · O lab (Caminho A)** | no seu computador | turma | não | o lab da aula (45 min) |
+| **2 · Bônus (Caminho B)** | CloudShell do Learner Lab | turma, em casa | Learner Lab | o gatilho de verdade: bônus N3.1 da Entrega 05 |
+| **3 · Demo do professor** | computador do professor | professor | conta própria | o mesmo agente decidindo com um LLM no Bedrock |
+
+No Caminho A, a nota entra quando você roda `semear`. No Caminho B, ela cai num bucket S3, um
+evento aciona a Lambda e a mensagem espera numa fila SQS. Na demo, quem decide é um modelo, no
+lugar das regras.
 
 ---
 
-## Caminho A — sua máquina (Python 3.11+)
+## Parte 1 · O lab (Caminho A) — no seu computador (Python 3.11+)
+
+Nada roda na AWS neste caminho: a API, a mesa do auditor e o agente são processos Python no seu
+computador, e a fila e a memória são arquivos na pasta `dados/`. Custo zero, nenhuma credencial.
+
+> **No Windows não há `make`.** Cada `make` só dispara um comando, definido no `Makefile` desta
+> pasta (digite `make` no Mac, Linux ou CloudShell para ver a lista). No PowerShell, rode a coluna
+> da direita, com o venv ativo (`.venv\Scripts\Activate.ps1`) em cada terminal:
+>
+> | `make` | O que faz | Equivalente no PowerShell |
+> |---|---|---|
+> | `instalar` | instala as dependências | `pip install -r requirements.txt` |
+> | `testar` | roda os testes | `python -m pytest` |
+> | `api` | sobe a API em :8000 | `python -m uvicorn api.principal:aplicacao --reload --port 8000` |
+> | `web` | sobe a mesa do auditor em :8501 | `streamlit run web/aplicacao.py` |
+> | `semear` | põe 3 notas na fila | `python gatilho/disparador.py --semear` |
+> | `volta` | uma volta do agente | `python gatilho/ciclo_do_agente.py --uma-volta` |
+> | `demos` | as três tentativas barradas | `python gatilho/ciclo_do_agente.py --tentar-aprovar` (depois `--tentar-liberar` e `--injecao`) |
+>
+> O código de cada comando: `api/principal.py` e `api/servicos/` (API), `web/aplicacao.py` (mesa),
+> `gatilho/disparador.py` (semear, enviar, drenar) e `gatilho/ciclo_do_agente.py` (o agente).
 
 ### Passo 1 · Instalar e testar (5 min)
 
@@ -21,6 +49,9 @@ python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\a
 make instalar        # sem make: pip install -r requirements.txt
 make testar          # esperado: 26 passed
 ```
+
+> Um aviso `StarletteDeprecationWarning` no fim do pytest é esperado: vem de uma biblioteca de
+> teste e não afeta o lab.
 
 > **Por que 26 e não 23?** São 23 funções de teste; uma delas roda com 4 valores de auditor
 > (`None`, `""`, `"deva"`, `"DEVA"`), e o pytest conta cada valor como um caso.
@@ -85,9 +116,15 @@ essa condição do texto e a colocou na API.
 
 ---
 
-## Caminho B — CloudShell (Learner Lab)
+## Parte 2 · Bônus (Caminho B) — no CloudShell do Learner Lab
 
-O CloudShell não abre o Streamlit, mas roda a API, o agente e o gatilho de verdade.
+Tudo roda dentro do CloudShell, inclusive a API: o seu computador não participa. O CloudShell não abre o
+Streamlit, então a assinatura é feita pela linha de comando (Passo 4).
+
+**Credencial:** nada a configurar. No CloudShell aberto pelo console do Learner Lab, o Terraform,
+o `aws` e o Python já usam a credencial da sessão (role `voclabs`). Para conferir:
+`aws sts get-caller-identity` deve mostrar `assumed-role/voclabs/...`. Se a sessão do Learner Lab
+expirar, clique em **Start Lab**, reabra o CloudShell e retome do Passo 1.
 
 ### Passo 1 · Preparar
 
@@ -163,6 +200,47 @@ make limpar
 ```
 
 ---
+
+## Parte 3 · Demo do professor — o mesmo agente com um LLM no Bedrock
+
+O agente da turma decide por regras (sem LLM), porque o Learner Lab não libera o Bedrock. Na
+conta própria, o professor roda o **mesmo ciclo** com um modelo de verdade: ele recebe as 5
+operações de `agente/openapi-agente.json` como ferramentas (Converse) e decide sozinho, com os
+três freios em código (8 voltas, 20 mil tokens, 60 s). A fronteira é a mesma.
+
+Use o Caminho A, com a API rodando no terminal 1. O código não tem campo de credencial: o boto3
+procura sozinho, primeiro nas variáveis de ambiente do terminal, depois no perfil da AWS CLI.
+
+**1 · Coletar a credencial** (sem tela projetada). No CloudShell da **conta pessoal** (o usuário
+no canto superior direito não pode ser `voclabs`):
+
+```bash
+aws configure export-credentials --format powershell   # no Mac/Linux: --format env
+```
+
+Ou, se a AWS CLI do seu computador já tem um perfil da conta pessoal, pule este passo e use
+`$Env:AWS_PROFILE = "<seu-perfil>"`.
+
+**2 · Escolher o modelo.** No console do Bedrock (us-east-1), abra o catálogo, escolha o modelo
+e copie o ID do **perfil de inferência** (começa com `us.` ou `global.`). Teste antes no Playground.
+
+**3 · Rodar**, no terminal 3, com o venv ativo:
+
+```powershell
+# cole as três linhas $Env:AWS_... geradas no passo 1
+$Env:AWS_REGION = "us-east-1"
+$Env:BEDROCK_MODEL_ID = "<ID copiado no passo 2>"
+python gatilho/disparador.py --semear
+python gatilho/ciclo_do_agente.py --uma-volta --bedrock
+```
+
+A saída mostra por que o agente parou (`parou_por`), as voltas e os tokens gastos. Abra a mesa do
+auditor: as decisões do modelo aparecem como as do script, e o 403 vale do mesmo jeito.
+
+> As variáveis valem só naquele terminal e a credencial do CloudShell vence em cerca de 1 hora
+> (`ExpiredToken`: gere de novo). Nunca grave chave em `.env` nem em arquivo do repositório: ele é
+> público. Perfil `global.` pode processar o dado fora dos EUA; para dado pessoal real, a decisão
+> é do jurídico.
 
 ## Se der errado
 
