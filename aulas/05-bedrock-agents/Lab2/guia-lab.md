@@ -141,9 +141,25 @@ Nenhuma das duas apaga estado: o `terraform.tfstate` fica onde está e o `init` 
 de novo. Nesta aula o cache vai para o `/tmp`, que tem espaço de sobra (some quando a sessão
 reinicia, e aí o `init` baixa outra vez).
 
+**Atualizar o repositório.** Quem já clonou nas aulas anteriores precisa da versão nova; quem nunca
+clonou, clona agora. O `stash` guarda alterações locais que travariam o `pull`:
+
+```bash
+if [ -d ~/aie-cloud/.git ]; then
+  git -C ~/aie-cloud stash && git -C ~/aie-cloud pull
+else
+  git clone https://github.com/IsaiasBritto/aie-cloud-aws.git ~/aie-cloud
+fi
+git -C ~/aie-cloud log --oneline -1      # confira: deve bater com o último commit do GitHub
+```
+
+Se o `pull` reclamar de arquivos não rastreados, apague só o que ele listar (ou mova para fora da
+pasta) e rode o `pull` de novo.
+
+**Ambiente e API:**
+
 ```bash
 export TF_PLUGIN_CACHE_DIR=/tmp/tf-cache && mkdir -p $TF_PLUGIN_CACHE_DIR
-cd ~ && git clone https://github.com/IsaiasBritto/aie-cloud-aws.git aie-cloud 2>/dev/null || git -C ~/aie-cloud pull
 cd ~/aie-cloud/aulas/05-bedrock-agents/Lab2
 python3 -m venv /tmp/venv-qc && source /tmp/venv-qc/bin/activate
 pip install --no-cache-dir -r requirements.txt
